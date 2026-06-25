@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Seed values for the theme tokens so the palette is correct on first paint,
+ * before the JS in src/config/theme.ts re-applies them. Keep these in sync
+ * with themeTokens — that file remains the source of truth.
+ */
+:root {
+  --color-brand: 193 5 5;
+  --color-brand-strong: 155 4 4;
+  --color-brand-soft: 243 230 221;
+
+  --color-surface-base: 255 255 255;
+  --color-surface-raised: 247 242 238;
+  --color-surface-overlay: 240 235 230;
+  --color-surface-sunken: 242 242 242;
+
+  --color-content-primary: 47 48 52;
+  --color-content-secondary: 102 102 102;
+  --color-content-muted: 117 117 117;
+  --color-content-inverse: 255 255 255;
+  --color-content-on-brand: 255 255 255;
+
+  --color-line: 226 220 215;
+  --color-line-strong: 179 178 177;
+
+  --color-success: 52 168 110;
+  --color-warning: 214 158 46;
+  --color-danger: 193 5 5;
+
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    @apply border-line;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-surface-base text-content-primary font-sans antialiased;
+  }
+
+  /* Consistent, theme-aware focus ring for keyboard users */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-surface-base;
+  }
+
+  ::selection {
+    @apply bg-brand text-content-on-brand;
+  }
+}
+
+@layer utilities {
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-line-strong;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
