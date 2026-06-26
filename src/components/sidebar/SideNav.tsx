@@ -82,6 +82,31 @@ export function SideNav({ open, onNavigate }: SideNavProps) {
                     </>
                   )}
                 </NavLink>
+
+                {/* Sub-items */}
+                {item.children && item.children.length > 0 && (
+                  <ul className="ml-11 mt-1 space-y-1 border-l border-line pl-3">
+                    {item.children.map((child) => (
+                      <li key={child.key}>
+                        <NavLink
+                          to={child.path}
+                          className={({ isActive }) =>
+                            [
+                              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition',
+                              isActive
+                                ? 'bg-brand-soft text-content-primary'
+                                : 'text-content-secondary hover:bg-surface-overlay hover:text-content-primary',
+                            ].join(' ')
+                          }
+                          onClick={onNavigate}
+                        >
+                          <Icon name={child.icon as IconName} size={15} />
+                          <span className="truncate">{child.label}</span>
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

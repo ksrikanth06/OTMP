@@ -1,0 +1,9 @@
+Emp ID,Employee Name,Grade,Date,Regular OT (hrs),OT After 9PM (hrs),Holiday OT (hrs),Total OT (hrs),Approved By (Manager),Regular OT Pay (AED),OT After 9PM Pay (AED),Holiday OT Pay (AED),Total OT Pay (AED)
+EMP-1001,Srikanth Kadaru,G5,02 Jun 2026,3,1,0,4,Rama Krishna,108.49,36.16,0.00,144.66
+EMP-1001,Srikanth Kadaru,G5,05 Jun 2026,2,0,0,2,Rama Krishna,72.33,0.00,0.00,72.33
+EMP-1004,Priya Nair,G7,01 Jun 2026,2,0,4,6,Rama Krishna,54.25,0.00,151.89,206.14
+EMP-1004,Priya Nair,G7,06 Jun 2026,3.5,0,0,3.5,Rama Krishna,94.93,0.00,0.00,94.93
+EMP-1005,Marcus Webb,G4,03 Jun 2026,0,3,0,3,Rama Krishna,0.00,122.05,0.00,122.05
+EMP-1006,Layla Hassan,G6,04 Jun 2026,5,0,0,5,Nadia Al Hashimi,158.22,0.00,0.00,158.22
+EMP-1006,Layla Hassan,G6,09 Jun 2026,2,1.5,0,3.5,Nadia Al Hashimi,63.29,47.47,0.00,110.75
+EMP-1007,Tom Bancroft,G3,05 Jun 2026,1,2,3,6,Nadia Al Hashimi,45.21,90.41,189.86,325.48

@@ -22,12 +22,12 @@ npm run preview    # preview the production build
 
 ## Demo credentials
 
-Authentication uses a static directory standing in for SSO/LDAP. Password for all accounts: `Passw0rd!`
+Authentication uses a static directory standing in for SSO/LDAP. Password for all accounts: `123`
 
 | Username           | Role     |
 | ------------------ | -------- |
-| `employee.jordan`  | Employee |
-| `manager.rivera`   | Manager  |
+| `employee.srikanth`  | Employee |
+| `manager.rama`   | Manager  |
 | `hr.okafor`        | HR       |
 
 Pick the matching role on the login screen — the role must match the account, mirroring an LDAP group check.

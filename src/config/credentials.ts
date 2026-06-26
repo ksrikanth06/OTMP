@@ -6,9 +6,9 @@ import { AuthenticatedUser, LoginCredentials, UserRole } from '@/types';
  * the app only depends on its return shape.
  *
  * Demo logins (username / password):
- *   employee.jordan / Passw0rd!   → Employee
- *   manager.rivera  / Passw0rd!   → Manager
- *   hr.okafor       / Passw0rd!   → HR
+ *   employee.srikanth / 123   → Employee
+ *   manager.rama  / 123   → Manager
+ *   hr.okafor       / 123   → HR
  */
 
 interface DirectoryRecord extends AuthenticatedUser {
@@ -21,27 +21,27 @@ const directory: DirectoryRecord[] = [
   // ── Loginable demo accounts ────────────────────────────────────────────
   {
     id: 'u-1001',
-    username: 'employee.jordan',
-    password: 'Passw0rd!',
-    displayName: 'Jordan Avery',
-    email: 'jordan.avery@etihadrail.ae',
+    username: 'employee.srikanth',
+    password: '123',
+    displayName: 'Srikanth Kadaru',
+    email: 'srikanth.kadaru@etihadrail.ae',
     role: UserRole.Employee,
-    jobTitle: 'Field Technician',
+    jobTitle: 'Integration Speacialist',
     managerId: 'u-1002',
   },
   {
     id: 'u-1002',
-    username: 'manager.rivera',
-    password: 'Passw0rd!',
-    displayName: 'Sam Rivera',
-    email: 'sam.rivera@etihadrail.ae',
+    username: 'manager.rama',
+    password: '123',
+    displayName: 'Rama Krishna',
+    email: 'rama.krishna@etihadrail.ae',
     role: UserRole.Manager,
-    jobTitle: 'Operations Manager',
+    jobTitle: 'Integration Manager',
   },
   {
     id: 'u-1003',
     username: 'hr.okafor',
-    password: 'Passw0rd!',
+    password: '123',
     displayName: 'Ada Okafor',
     email: 'ada.okafor@etihadrail.ae',
     role: UserRole.Hr,
@@ -52,7 +52,7 @@ const directory: DirectoryRecord[] = [
   {
     id: 'u-1004',
     username: 'priya.nair',
-    password: 'Passw0rd!',
+    password: '123',
     displayName: 'Priya Nair',
     email: 'priya.nair@etihadrail.ae',
     role: UserRole.Employee,
@@ -62,7 +62,7 @@ const directory: DirectoryRecord[] = [
   {
     id: 'u-1005',
     username: 'marcus.webb',
-    password: 'Passw0rd!',
+    password: '123',
     displayName: 'Marcus Webb',
     email: 'marcus.webb@etihadrail.ae',
     role: UserRole.Employee,
@@ -72,7 +72,7 @@ const directory: DirectoryRecord[] = [
   {
     id: 'u-1006',
     username: 'layla.hassan',
-    password: 'Passw0rd!',
+    password: '123',
     displayName: 'Layla Hassan',
     email: 'layla.hassan@etihadrail.ae',
     role: UserRole.Employee,
@@ -82,7 +82,7 @@ const directory: DirectoryRecord[] = [
   {
     id: 'u-1007',
     username: 'tom.bancroft',
-    password: 'Passw0rd!',
+    password: '123',
     displayName: 'Tom Bancroft',
     email: 'tom.bancroft@etihadrail.ae',
     role: UserRole.Employee,

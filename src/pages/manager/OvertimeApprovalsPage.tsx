@@ -40,12 +40,12 @@ const formatWorked = (r: OvertimeRecord) => {
 };
 
 const DUMMY_RECORDS: OvertimeRecord[] = [
-  // Jordan Avery – EMP-1001
-  { empId: 'EMP-1001', name: 'Jordan Avery',  date: '02 Jun 2026', grade: 'G5', regularDayOT: 3,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:02', clockOut: '20:15' },
-  { empId: 'EMP-1001', name: 'Jordan Avery',  date: '05 Jun 2026', grade: 'G5', regularDayOT: 2,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 2,   timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:00', clockOut: '18:30' },
-  { empId: 'EMP-1001', name: 'Jordan Avery',  date: '10 Jun 2026', grade: 'G5', regularDayOT: 0,   regularDayOTAfter9PM: 2.5, publicHolidayOT: 0, totalOTApproved: 2.5, timeInLieu: 1, preApproved: false, status: 'Pending',  clockIn: '07:45', clockOut: '21:20' },
-  { empId: 'EMP-1001', name: 'Jordan Avery',  date: '14 Jun 2026', grade: 'G5', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: true,  status: 'Pending',  clockIn: '08:00', clockOut: '20:05' },
-  { empId: 'EMP-1001', name: 'Jordan Avery',  date: '19 Jun 2026', grade: 'G5', regularDayOT: 1.5, regularDayOTAfter9PM: 1.5, publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 0, preApproved: false, status: 'Pending',  clockIn: '08:30', clockOut: '21:00' },
+  // Srikanth Kadaru – EMP-1001
+  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '02 Jun 2026', grade: 'G5', regularDayOT: 3,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:02', clockOut: '20:15' },
+  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '05 Jun 2026', grade: 'G5', regularDayOT: 2,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 2,   timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:00', clockOut: '18:30' },
+  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '10 Jun 2026', grade: 'G5', regularDayOT: 0,   regularDayOTAfter9PM: 2.5, publicHolidayOT: 0, totalOTApproved: 2.5, timeInLieu: 1, preApproved: false, status: 'Pending',  clockIn: '07:45', clockOut: '21:20' },
+  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '14 Jun 2026', grade: 'G5', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: true,  status: 'Pending',  clockIn: '08:00', clockOut: '20:05' },
+  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '19 Jun 2026', grade: 'G5', regularDayOT: 1.5, regularDayOTAfter9PM: 1.5, publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 0, preApproved: false, status: 'Pending',  clockIn: '08:30', clockOut: '21:00' },
 
   // Priya Nair – EMP-1004
   { empId: 'EMP-1004', name: 'Priya Nair',    date: '01 Jun 2026', grade: 'G7', regularDayOT: 2,   regularDayOTAfter9PM: 0,   publicHolidayOT: 4, totalOTApproved: 6,   timeInLieu: 2, preApproved: false, status: 'Approved', clockIn: '07:55', clockOut: '18:30' },

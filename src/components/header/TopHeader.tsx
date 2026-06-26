@@ -39,7 +39,7 @@ export function TopHeader({ onToggleNav, navOpen }: TopHeaderProps) {
   };
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface-raised/80 px-4 backdrop-blur supports-[backdrop-filter]:bg-surface-raised/70 lg:px-6">
+    <header className="relative z-40 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface-raised/80 px-4 backdrop-blur supports-[backdrop-filter]:bg-surface-raised/70 lg:px-6">
       <div className="flex items-center gap-5">
         <button
           type="button"
@@ -76,7 +76,7 @@ export function TopHeader({ onToggleNav, navOpen }: TopHeaderProps) {
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-[calc(100%+0.5rem)] w-64 origin-top-right animate-fade-up overflow-hidden rounded-card border border-line bg-surface-overlay shadow-panel"
+            className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-64 origin-top-right animate-fade-up overflow-hidden rounded-card border border-line bg-surface-overlay shadow-panel"
           >
             <div className="flex items-center gap-3 border-b border-line px-4 py-3">
               <Avatar name={user.displayName} size={40} />

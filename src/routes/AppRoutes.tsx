@@ -3,6 +3,9 @@ import { LoginPage } from '@/pages/LoginPage';
 import { HomePage } from '@/pages/HomePage';
 import { OvertimeApprovalsPage } from '@/pages/manager/OvertimeApprovalsPage';
 import { MyTeamPage } from '@/pages/manager/MyTeamPage';
+import { ShiftPlanPage } from '@/pages/manager/ShiftPlanPage';
+import { HrApprovalsPage } from '@/pages/hr/HrApprovalsPage';
+import { HrPayrollPage } from '@/pages/hr/HrPayrollPage';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -16,6 +19,9 @@ export function AppRoutes() {
           <Route index element={<HomePage />} />
           <Route path="approvals" element={<OvertimeApprovalsPage />} />
           <Route path="team" element={<MyTeamPage />} />
+          <Route path="team/shift-plan" element={<ShiftPlanPage />} />
+          <Route path="hr-approvals" element={<HrApprovalsPage />} />
+          <Route path="hr-payroll" element={<HrPayrollPage />} />
           <Route path="*" element={<HomePage />} />
         </Route>
       </Route>

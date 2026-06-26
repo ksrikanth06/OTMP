@@ -17,15 +17,17 @@ const employeeNav: NavItem[] = [
 const managerNav: NavItem[] = [
   { key: 'mgr-dashboard', label: 'Dashboard', path: '/home', icon: 'grid' },
   { key: 'mgr-approvals', label: 'Overtime Approvals', path: '/home/approvals', icon: 'check' },
-  { key: 'mgr-team', label: 'My Team', path: '/home/team', icon: 'users' },
+  {
+    key: 'mgr-team', label: 'My Team', path: '/home/team', icon: 'users',
+    children: [
+      { key: 'mgr-shift-plan', label: 'View Shift Plan', path: '/home/team/shift-plan', icon: 'calendar' },
+    ],
+  },
 ];
 
 const hrNav: NavItem[] = [
-  { key: 'hr-dashboard', label: 'Dashboard', path: '/home', icon: 'grid' },
-  { key: 'hr-policies', label: 'Overtime policies', path: '/home/policies', icon: 'shield' },
-  { key: 'hr-payroll', label: 'Payroll export', path: '/home/payroll', icon: 'wallet' },
-  { key: 'hr-reports', label: 'Organisation reports', path: '/home/reports', icon: 'chart' },
-  { key: 'hr-employees', label: 'Employees', path: '/home/employees', icon: 'users' },
+  { key: 'hr-approvals', label: 'Overtime Approvals',       path: '/home/hr-approvals', icon: 'check'  },
+  { key: 'hr-payroll',   label: 'Export Overtime Payroll Data', path: '/home/hr-payroll',   icon: 'wallet' },
 ];
 
 export const navByRole: Record<UserRole, NavItem[]> = {

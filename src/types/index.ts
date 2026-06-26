@@ -31,4 +31,6 @@ export interface NavItem {
   path: string;
   /** Icon name resolved by the Icon component. */
   icon: string;
+  /** Optional nested items rendered below this entry. */
+  children?: Omit<NavItem, 'children'>[];
 }
