@@ -8,7 +8,14 @@ const STORAGE_KEY = 'overtime-portal.auth';
 const loadPersistedUser = (): AuthenticatedUser | null => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as AuthenticatedUser) : null;
+    if (!raw) return null;
+    const user = JSON.parse(raw) as AuthenticatedUser;
+    // Evict sessions with old ID format (e.g. 'u-XXXX') so users are prompted to re-login
+    if (!user.id.startsWith('EMP-')) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return user;
   } catch {
     return null;
   }

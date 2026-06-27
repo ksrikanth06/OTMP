@@ -40,6 +40,10 @@ export default {
           warning: withVar('--color-warning'),
           danger: withVar('--color-danger'),
         },
+        // Top-level aliases so bg-success / text-success / etc. work directly
+        success: withVar('--color-success'),
+        warning: withVar('--color-warning'),
+        danger:  withVar('--color-danger'),
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'Segoe UI', 'sans-serif'],

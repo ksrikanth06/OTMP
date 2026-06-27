@@ -1,27 +1,15 @@
 import { useState } from 'react';
+import { calcOtPay, fmtAed, MONTHS } from '@/services/dataService';
+import type { OvertimeRecord } from '@/services/dataService';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import {
+  mkOTKey,
+  managerApproveRecords, managerRejectRecords,
+  managerApproveSingle, managerRejectSingle, managerSaveOTHours,
+} from '@/store/slices/otSlice';
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-interface OvertimeRecord {
-  empId: string;
-  name: string;
-  date: string;
-  grade: string;
-  regularDayOT: number;
-  regularDayOTAfter9PM: number;
-  publicHolidayOT: number;
-  totalOTApproved: number;
-  timeInLieu: number;
-  preApproved: boolean;
-  status: string;
-  clockIn: string;
-  clockOut: string;
-}
-
-/** Parses "HH:MM" into decimal hours, e.g. "08:30" → 8.5 */
 const parseHours = (time: string): number => {
   const [h, m] = time.split(':').map(Number);
   return h + m / 60;
@@ -34,66 +22,48 @@ const formatWorked = (r: OvertimeRecord) => {
   const total = workedHours(r);
   const h = Math.floor(total);
   const m = Math.round((total - h) * 60);
-  const hhmm = `${h} hr${h !== 1 ? 's' : ''} ${m} min${m !== 1 ? 's' : ''}`;
-  const decimal = total;
-  return { hhmm, decimal };
+  return { hhmm: `${h} hr${h !== 1 ? 's' : ''} ${m} min${m !== 1 ? 's' : ''}`, decimal: total };
 };
 
-const DUMMY_RECORDS: OvertimeRecord[] = [
-  // Srikanth Kadaru – EMP-1001
-  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '02 Jun 2026', grade: 'G5', regularDayOT: 3,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:02', clockOut: '20:15' },
-  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '05 Jun 2026', grade: 'G5', regularDayOT: 2,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 2,   timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:00', clockOut: '18:30' },
-  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '10 Jun 2026', grade: 'G5', regularDayOT: 0,   regularDayOTAfter9PM: 2.5, publicHolidayOT: 0, totalOTApproved: 2.5, timeInLieu: 1, preApproved: false, status: 'Pending',  clockIn: '07:45', clockOut: '21:20' },
-  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '14 Jun 2026', grade: 'G5', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: true,  status: 'Pending',  clockIn: '08:00', clockOut: '20:05' },
-  { empId: 'EMP-1001', name: 'Srikanth Kadaru',  date: '19 Jun 2026', grade: 'G5', regularDayOT: 1.5, regularDayOTAfter9PM: 1.5, publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 0, preApproved: false, status: 'Pending',  clockIn: '08:30', clockOut: '21:00' },
+interface DetailDraft {
+  record: OvertimeRecord;
+  regularDayOT: number;
+  regularDayOTAfter9PM: number;
+  publicHolidayOT: number;
+}
 
-  // Priya Nair – EMP-1004
-  { empId: 'EMP-1004', name: 'Priya Nair',    date: '01 Jun 2026', grade: 'G7', regularDayOT: 2,   regularDayOTAfter9PM: 0,   publicHolidayOT: 4, totalOTApproved: 6,   timeInLieu: 2, preApproved: false, status: 'Approved', clockIn: '07:55', clockOut: '18:30' },
-  { empId: 'EMP-1004', name: 'Priya Nair',    date: '06 Jun 2026', grade: 'G7', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:10', clockOut: '19:55' },
-  { empId: 'EMP-1004', name: 'Priya Nair',    date: '11 Jun 2026', grade: 'G7', regularDayOT: 0,   regularDayOTAfter9PM: 3,   publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 1, preApproved: true,  status: 'Approved', clockIn: '09:00', clockOut: '21:30' },
-  { empId: 'EMP-1004', name: 'Priya Nair',    date: '17 Jun 2026', grade: 'G7', regularDayOT: 2.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 2, totalOTApproved: 4.5, timeInLieu: 0, preApproved: false, status: 'Pending',  clockIn: '07:30', clockOut: '19:45' },
-  { empId: 'EMP-1004', name: 'Priya Nair',    date: '23 Jun 2026', grade: 'G7', regularDayOT: 4,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 2, preApproved: true,  status: 'Pending',  clockIn: '08:00', clockOut: '21:15' },
-
-  // Marcus Webb – EMP-1005
-  { empId: 'EMP-1005', name: 'Marcus Webb',   date: '03 Jun 2026', grade: 'G4', regularDayOT: 0,   regularDayOTAfter9PM: 3,   publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 1, preApproved: true,  status: 'Approved', clockIn: '09:10', clockOut: '21:45' },
-  { empId: 'EMP-1005', name: 'Marcus Webb',   date: '08 Jun 2026', grade: 'G4', regularDayOT: 2.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 2.5, timeInLieu: 0, preApproved: false, status: 'Approved', clockIn: '08:00', clockOut: '18:45' },
-  { empId: 'EMP-1005', name: 'Marcus Webb',   date: '13 Jun 2026', grade: 'G4', regularDayOT: 1,   regularDayOTAfter9PM: 2,   publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 0, preApproved: true,  status: 'Pending',  clockIn: '08:15', clockOut: '20:50' },
-  { empId: 'EMP-1005', name: 'Marcus Webb',   date: '20 Jun 2026', grade: 'G4', regularDayOT: 3,   regularDayOTAfter9PM: 0.5, publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 1, preApproved: true,  status: 'Pending',  clockIn: '07:50', clockOut: '20:20' },
-
-  // Layla Hassan – EMP-1006
-  { empId: 'EMP-1006', name: 'Layla Hassan',  date: '04 Jun 2026', grade: 'G6', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 0, preApproved: false, status: 'Approved', clockIn: '07:30', clockOut: '19:00' },
-  { empId: 'EMP-1006', name: 'Layla Hassan',  date: '09 Jun 2026', grade: 'G6', regularDayOT: 2,   regularDayOTAfter9PM: 1.5, publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 0, preApproved: true,  status: 'Approved', clockIn: '08:00', clockOut: '21:00' },
-  { empId: 'EMP-1006', name: 'Layla Hassan',  date: '16 Jun 2026', grade: 'G6', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 4, totalOTApproved: 4,   timeInLieu: 2, preApproved: false, status: 'Pending',  clockIn: '07:45', clockOut: '18:15' },
-  { empId: 'EMP-1006', name: 'Layla Hassan',  date: '22 Jun 2026', grade: 'G6', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 1, preApproved: true,  status: 'Pending',  clockIn: '08:05', clockOut: '19:50' },
-
-  // Tom Bancroft – EMP-1007
-  { empId: 'EMP-1007', name: 'Tom Bancroft',  date: '05 Jun 2026', grade: 'G3', regularDayOT: 1,   regularDayOTAfter9PM: 2,   publicHolidayOT: 3, totalOTApproved: 6,   timeInLieu: 3, preApproved: true,  status: 'Approved', clockIn: '08:45', clockOut: '22:10' },
-  { empId: 'EMP-1007', name: 'Tom Bancroft',  date: '12 Jun 2026', grade: 'G3', regularDayOT: 2.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 2.5, timeInLieu: 0, preApproved: false, status: 'Approved', clockIn: '08:00', clockOut: '18:45' },
-  { empId: 'EMP-1007', name: 'Tom Bancroft',  date: '18 Jun 2026', grade: 'G3', regularDayOT: 0,   regularDayOTAfter9PM: 3.5, publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 1, preApproved: true,  status: 'Pending',  clockIn: '09:00', clockOut: '22:00' },
-  { empId: 'EMP-1007', name: 'Tom Bancroft',  date: '24 Jun 2026', grade: 'G3', regularDayOT: 4,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 2, preApproved: false, status: 'Pending',  clockIn: '07:55', clockOut: '21:30' },
-];
+const computeTotal = (d: DetailDraft) =>
+  Math.round((d.regularDayOT + d.regularDayOTAfter9PM + d.publicHolidayOT) * 100) / 100;
 
 export function OvertimeApprovalsPage() {
+  const dispatch = useAppDispatch();
+  const allManagerRecords = useAppSelector((s) => s.ot.managerRecords);
+  const managerName = useAppSelector((s) => s.auth.user?.displayName ?? 'Manager');
+
   const today = new Date();
   const todayYear  = today.getFullYear();
   const todayMonth = today.getMonth() + 1;
 
-  const [year, setYear]       = useState(todayYear);
-  const [month, setMonth]     = useState(todayMonth);
-  const [records, setRecords]         = useState<OvertimeRecord[] | null>(null);
+  const [year, setYear]               = useState(todayYear);
+  const [month, setMonth]             = useState(todayMonth);
   const [activeTab, setActiveTab]     = useState<'pending' | 'approved'>('pending');
   const [filterName, setFilterName]   = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [clockPopup, setClockPopup]   = useState<OvertimeRecord | null>(null);
+  const [detail, setDetail]           = useState<DetailDraft | null>(null);
+  const [rejectDialog, setRejectDialog] = useState<{ mode: 'bulk' } | { mode: 'single'; draft: DetailDraft } | null>(null);
+  const [rejectComment, setRejectComment] = useState('');
 
-  const pendingCount  = records ? records.filter((r) => r.status === 'Pending').length  : 0;
-  const approvedCount = records ? records.filter((r) => r.status === 'Approved').length : 0;
+  const records = allManagerRecords.filter((r) => {
+    const p = r.date.split(' ');
+    return p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+  });
+
+  const pendingCount  = records.filter((r) => r.status === 'Pending').length;
+  const approvedCount = records.filter((r) => r.status === 'Approved').length;
 
   const filteredRecords = records
-    ? records
-        .filter((r) => activeTab === 'pending' ? r.status === 'Pending' : r.status === 'Approved')
-        .filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()))
-    : null;
+    .filter((r) => activeTab === 'pending' ? r.status === 'Pending' : r.status === 'Approved')
+    .filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
 
   const years = Array.from({ length: 5 }, (_, i) => todayYear - i);
   const maxMonth = year === todayYear ? todayMonth : 12;
@@ -102,37 +72,62 @@ export function OvertimeApprovalsPage() {
   const handleYearChange = (y: number) => {
     setYear(y);
     setMonth((m) => Math.min(m, y === todayYear ? todayMonth : 12));
-    setRecords(null);
     setFilterName('');
+    setSelectedIds(new Set());
   };
 
-  const handleFetch = () => {
-    // TODO: replace with API call using year, month
-    setRecords(DUMMY_RECORDS);
+  const openDetail = (r: OvertimeRecord) => {
+    setDetail({ record: r, regularDayOT: r.regularDayOT, regularDayOTAfter9PM: r.regularDayOTAfter9PM, publicHolidayOT: r.publicHolidayOT });
   };
 
-  const updateHours = (empId: string, date: string, field: 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', value: number) => {
-    setRecords((prev) =>
-      prev
-        ? prev.map((r) => {
-            if (r.empId !== empId || r.date !== date) return r;
-            const clamped = Math.max(0, value);
-            const others =
-              (field === 'regularDayOT'        ? 0 : r.regularDayOT) +
-              (field === 'regularDayOTAfter9PM' ? 0 : r.regularDayOTAfter9PM) +
-              (field === 'publicHolidayOT'      ? 0 : r.publicHolidayOT);
-            const maxAllowed = Math.max(0, workedHours(r) - others);
-            const safeValue  = Math.min(clamped, maxAllowed);
-            const rounded    = Math.round(safeValue * 100) / 100;
-            const updated    = { ...r, [field]: rounded };
-            updated.totalOTApproved =
-              Math.round((updated.regularDayOT + updated.regularDayOTAfter9PM + updated.publicHolidayOT) * 100) / 100;
-            return updated;
-          })
-        : prev,
-    );
+  const updateDraft = (field: 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', value: number) => {
+    setDetail((prev) => {
+      if (!prev) return prev;
+      const clamped = Math.max(0, value);
+      const maxWorked = workedHours(prev.record);
+      const others =
+        (field === 'regularDayOT'        ? 0 : prev.regularDayOT) +
+        (field === 'regularDayOTAfter9PM' ? 0 : prev.regularDayOTAfter9PM) +
+        (field === 'publicHolidayOT'      ? 0 : prev.publicHolidayOT);
+      const safe = Math.round(Math.min(clamped, Math.max(0, maxWorked - others)) * 100) / 100;
+      return { ...prev, [field]: safe };
+    });
   };
 
+  const commitDraft = (newStatus?: 'Approved' | 'Rejected', comment?: string) => {
+    if (!detail) return;
+    const { record, regularDayOT, regularDayOTAfter9PM, publicHolidayOT } = detail;
+    const totalOTApproved = computeTotal(detail);
+    const base = { empId: record.empId, date: record.date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved };
+    if (newStatus === 'Approved') {
+      dispatch(managerApproveSingle({ ...base, managerName }));
+    } else if (newStatus === 'Rejected') {
+      dispatch(managerRejectSingle({ ...base, comment: comment ?? '' }));
+    } else {
+      dispatch(managerSaveOTHours(base));
+    }
+    setDetail(null);
+  };
+
+  const confirmReject = () => {
+    const trimmed = rejectComment.trim();
+    if (!trimmed || !rejectDialog) return;
+    if (rejectDialog.mode === 'bulk') {
+      dispatch(managerRejectRecords({ keys: [...selectedIds], comment: trimmed }));
+      setSelectedIds(new Set());
+    } else {
+      const { draft } = rejectDialog;
+      const totalOTApproved = computeTotal(draft);
+      dispatch(managerRejectSingle({
+        empId: draft.record.empId, date: draft.record.date,
+        regularDayOT: draft.regularDayOT, regularDayOTAfter9PM: draft.regularDayOTAfter9PM,
+        publicHolidayOT: draft.publicHolidayOT, totalOTApproved,
+        comment: trimmed,
+      }));
+    }
+    setRejectDialog(null);
+    setRejectComment('');
+  };
 
   const toggleRow = (key: string) => {
     setSelectedIds((prev) => {
@@ -142,28 +137,15 @@ export function OvertimeApprovalsPage() {
     });
   };
 
-  const allSelected  = !!filteredRecords && filteredRecords.length > 0 && filteredRecords.every((r) => selectedIds.has(r.empId + r.date));
-  const someSelected = !!filteredRecords && filteredRecords.some((r) => selectedIds.has(r.empId + r.date)) && !allSelected;
+  const allSelected  = filteredRecords.length > 0 && filteredRecords.every((r) => selectedIds.has(mkOTKey(r.empId, r.date)));
+  const someSelected = filteredRecords.some((r) => selectedIds.has(mkOTKey(r.empId, r.date))) && !allSelected;
 
   const toggleAll = () => {
-    if (!filteredRecords) return;
-    setSelectedIds(allSelected ? new Set() : new Set(filteredRecords.map((r) => r.empId + r.date)));
-  };
-
-  const applyStatusToSelected = (newStatus: 'Approved' | 'Rejected') => {
-    setRecords((prev) =>
-      prev
-        ? prev.map((r) =>
-            selectedIds.has(r.empId + r.date) ? { ...r, status: newStatus } : r,
-          )
-        : prev,
-    );
-    setSelectedIds(new Set());
+    setSelectedIds(allSelected ? new Set() : new Set(filteredRecords.map((r) => mkOTKey(r.empId, r.date))));
   };
 
   const selectClass =
     'rounded-lg border border-line bg-surface-sunken px-3 py-2 text-sm text-content-primary focus:border-brand focus:outline-none';
-
   const th = 'px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-content-muted whitespace-nowrap border-b border-r border-line';
   const td = 'px-3 py-3.5 text-sm text-content-primary whitespace-nowrap border-r border-line';
 
@@ -175,7 +157,7 @@ export function OvertimeApprovalsPage() {
           Overtime Approvals
         </h1>
         <p className="mt-1 text-sm text-content-secondary">
-          Select a month and fetch overtime data for your team.
+          Review and approve overtime requests for your team.
         </p>
       </section>
 
@@ -187,279 +169,422 @@ export function OvertimeApprovalsPage() {
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-content-muted">Month</span>
-          <select
-            value={month}
-            onChange={(e) => { setMonth(Number(e.target.value)); setRecords(null); }}
-            className={selectClass}
-          >
+          <select value={month} onChange={(e) => { setMonth(Number(e.target.value)); setSelectedIds(new Set()); }} className={selectClass}>
             {availableMonths.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
           </select>
         </div>
-
-        <button
-          type="button"
-          onClick={handleFetch}
-          className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-content-on-brand transition hover:bg-brand-strong"
-        >
-          Fetch Overtime Data
-        </button>
       </div>
 
-      {/* Tabs — visible once data is loaded */}
-      {records && (
-        <div className="flex gap-1 rounded-xl border border-line bg-surface-overlay p-1 w-fit">
-          {(['pending', 'approved'] as const).map((tab) => {
-            const label = tab === 'pending' ? 'Pending Approvals' : 'Approved';
-            const count = tab === 'pending' ? pendingCount : approvedCount;
-            const active = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => { setActiveTab(tab); setFilterName(''); setSelectedIds(new Set()); }}
-                className={[
-                  'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition',
-                  active
-                    ? 'bg-surface-raised text-content-primary shadow-panel'
-                    : 'text-content-secondary hover:text-content-primary',
-                ].join(' ')}
-              >
-                {label}
-                <span className={[
-                  'rounded-full px-2 py-0.5 text-xs font-semibold',
-                  active
-                    ? tab === 'pending' ? 'bg-brand text-content-on-brand' : 'bg-success/15 text-success'
-                    : 'bg-surface-sunken text-content-muted',
-                ].join(' ')}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-xl border border-line bg-surface-overlay p-1 w-fit">
+        {(['pending', 'approved'] as const).map((tab) => {
+          const label = tab === 'pending' ? 'Pending Approvals' : 'Approved';
+          const count = tab === 'pending' ? pendingCount : approvedCount;
+          const active = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => { setActiveTab(tab); setFilterName(''); setSelectedIds(new Set()); }}
+              className={[
+                'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition',
+                active ? 'bg-surface-raised text-content-primary shadow-panel' : 'text-content-secondary hover:text-content-primary',
+              ].join(' ')}
+            >
+              {label}
+              <span className={[
+                'rounded-full px-2 py-0.5 text-xs font-semibold',
+                active
+                  ? tab === 'pending' ? 'bg-brand text-content-on-brand' : 'bg-success/15 text-success'
+                  : 'bg-surface-sunken text-content-muted',
+              ].join(' ')}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Name filter — visible once data is loaded */}
-      {records && (
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Filter by employee name…"
-            value={filterName}
-            onChange={(e) => setFilterName(e.target.value)}
-            className="w-64 rounded-lg border border-line bg-surface-raised px-3.5 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-brand focus:outline-none"
-          />
-          {filterName && (
+      {/* Name filter + bulk actions */}
+      <div className="flex items-center gap-3">
+        <input
+          type="text"
+          placeholder="Filter by employee name…"
+          value={filterName}
+          onChange={(e) => setFilterName(e.target.value)}
+          className="w-64 rounded-lg border border-line bg-surface-raised px-3.5 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-brand focus:outline-none"
+        />
+        {filterName && (
+          <button type="button" onClick={() => setFilterName('')} className="text-xs text-content-muted hover:text-content-primary">
+            Clear
+          </button>
+        )}
+        {selectedIds.size > 0 && (
+          <>
+            <div className="mx-2 h-5 w-px bg-line" />
+            <span className="text-xs text-content-secondary">{selectedIds.size} selected</span>
             <button
               type="button"
-              onClick={() => setFilterName('')}
-              className="text-xs text-content-muted hover:text-content-primary"
+              onClick={() => {
+                dispatch(managerApproveRecords({ keys: [...selectedIds], managerName }));
+                setSelectedIds(new Set());
+              }}
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
             >
-              Clear
+              Approve
             </button>
-          )}
-
-          {selectedIds.size > 0 && (
-            <>
-              <div className="mx-2 h-5 w-px bg-line" />
-              <span className="text-xs text-content-secondary">
-                {selectedIds.size} selected
-              </span>
-              <button
-                type="button"
-                onClick={() => applyStatusToSelected('Approved')}
-                className="rounded-lg bg-success/10 px-4 py-1.5 text-sm font-semibold text-success transition hover:bg-success/20"
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                onClick={() => applyStatusToSelected('Rejected')}
-                className="rounded-lg bg-danger/10 px-4 py-1.5 text-sm font-semibold text-danger transition hover:bg-danger/20"
-              >
-                Reject
-              </button>
-            </>
-          )}
-
-          <span className="ml-auto text-xs text-content-muted">
-            {filteredRecords!.length} record{filteredRecords!.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-      )}
+            <button
+              type="button"
+              onClick={() => { setRejectDialog({ mode: 'bulk' }); setRejectComment(''); }}
+              className="rounded-lg bg-danger/10 px-4 py-1.5 text-sm font-semibold text-danger transition hover:bg-danger/20"
+            >
+              Reject
+            </button>
+          </>
+        )}
+        <span className="ml-auto text-xs text-content-muted">
+          {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''} · click a row to view details
+        </span>
+      </div>
 
       {/* Results table */}
-      {filteredRecords && (
-        <div className="overflow-x-auto rounded-card border border-line bg-surface-raised shadow-panel">
-          <table className="min-w-full">
-            <thead className="bg-surface-overlay">
+      <div className="overflow-x-auto rounded-card border border-line bg-surface-raised shadow-panel">
+        <table className="min-w-full">
+          <thead className="bg-surface-overlay">
+            <tr>
+              <th className={`${th} text-center w-10`}>
+                <input
+                  type="checkbox"
+                  checked={activeTab === 'approved' ? true : allSelected}
+                  disabled={activeTab === 'approved'}
+                  ref={(el) => { if (el) el.indeterminate = activeTab === 'approved' ? false : someSelected; }}
+                  onChange={toggleAll}
+                  className={`h-4 w-4 accent-brand ${activeTab === 'approved' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                />
+              </th>
+              <th className={th}>Emp ID</th>
+              <th className={th}>Name</th>
+              <th className={th}>Date</th>
+              <th className={th}>Grade</th>
+              <th className={th}>Regular Day OT (Hrs)</th>
+              <th className={th}>Regular Day OT after 9PM (Hrs)</th>
+              <th className={th}>Public / Rest Holiday (Hrs)</th>
+              <th className={th}>Total OT (Hrs)</th>
+              <th className={th}>Time in Lieu (Hrs)</th>
+              <th className={`${th} text-center`}>Pre-Approved</th>
+              <th className={th}>Status</th>
+              <th className={th}>OT Pay (AED)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {filteredRecords.length === 0 ? (
               <tr>
-                <th className={`${th} text-center w-10`}>
-                  <input
-                    type="checkbox"
-                    checked={activeTab === 'approved' ? true : allSelected}
-                    disabled={activeTab === 'approved'}
-                    ref={(el) => { if (el) el.indeterminate = activeTab === 'approved' ? false : someSelected; }}
-                    onChange={toggleAll}
-                    className={`h-4 w-4 accent-brand ${activeTab === 'approved' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                  />
-                </th>
-                <th className={th}>Emp ID</th>
-                <th className={th}>Name</th>
-                <th className={th}>Date</th>
-                <th className={th}>Grade</th>
-                <th className={th}>Regular Day OT (Hrs)</th>
-                <th className={th}>Regular Day OT after 9PM (Hrs)</th>
-                <th className={th}>Public / Rest Holiday (Hrs)</th>
-                <th className={th}>Total OT Approved (Hrs)</th>
-                <th className={th}>Time in Lieu (Hrs)</th>
-                <th className={`${th} text-center`}>Pre-Approved</th>
-                <th className={th}>Status</th>
-                <th className={`${th} text-center`}>Clock In / Out</th>
+                <td colSpan={13} className="py-12 text-center text-sm text-content-muted">
+                  No {activeTab} records for {MONTHS[month - 1]} {year}.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {filteredRecords!.map((r) => {
-                const rowKey = r.empId + r.date;
+            ) : (
+              filteredRecords.map((r) => {
+                const key = mkOTKey(r.empId, r.date);
+                const { totalOTPay } = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
                 return (
-                <tr key={rowKey} className="transition hover:bg-surface-overlay">
-                  <td className={`${td} text-center`}>
-                    <input
-                      type="checkbox"
-                      checked={r.status === 'Approved' ? true : selectedIds.has(rowKey)}
-                      disabled={r.status === 'Approved'}
-                      onChange={() => r.status !== 'Approved' && toggleRow(rowKey)}
-                      className={`h-4 w-4 accent-brand ${r.status === 'Approved' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                    />
-                  </td>
-                  <td className={`${td} font-mono text-xs text-content-secondary`}>{r.empId}</td>
-                  <td className={`${td} font-medium`}>{r.name}</td>
-                  <td className={td}>{r.date}</td>
-                  <td className={td}>
-                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">
-                      {r.grade}
-                    </span>
-                  </td>
-                  <td className={`${td} text-center`}>
-                    {r.status === 'Approved' ? r.regularDayOT : (
-                      <input
-                        type="number"
-                        min={0}
-                        value={r.regularDayOT}
-                        onChange={(e) => updateHours(r.empId, r.date, 'regularDayOT', Number(e.target.value))}
-                        step="0.5"
-                        className="w-16 rounded border border-line bg-surface-sunken px-2 py-1 text-center text-sm text-content-primary focus:border-brand focus:outline-none"
-                      />
-                    )}
-                  </td>
-                  <td className={`${td} text-center`}>
-                    {r.status === 'Approved' ? r.regularDayOTAfter9PM : (
-                      <input
-                        type="number"
-                        min={0}
-                        value={r.regularDayOTAfter9PM}
-                        onChange={(e) => updateHours(r.empId, r.date, 'regularDayOTAfter9PM', Number(e.target.value))}
-                        step="0.5"
-                        className="w-16 rounded border border-line bg-surface-sunken px-2 py-1 text-center text-sm text-content-primary focus:border-brand focus:outline-none"
-                      />
-                    )}
-                  </td>
-                  <td className={`${td} text-center`}>
-                    {r.status === 'Approved' ? r.publicHolidayOT : (
-                      <input
-                        type="number"
-                        min={0}
-                        value={r.publicHolidayOT}
-                        onChange={(e) => updateHours(r.empId, r.date, 'publicHolidayOT', Number(e.target.value))}
-                        step="0.5"
-                        className="w-16 rounded border border-line bg-surface-sunken px-2 py-1 text-center text-sm text-content-primary focus:border-brand focus:outline-none"
-                      />
-                    )}
-                  </td>
-                  <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
-                  <td className={`${td} text-center`}>{r.timeInLieu}</td>
-                  <td className={`${td} text-center`}>
-                    {r.preApproved ? (
+                  <tr
+                    key={key}
+                    onClick={() => openDetail(r)}
+                    className="cursor-pointer transition hover:bg-surface-overlay"
+                  >
+                    <td className={`${td} text-center`} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked
-                        disabled
-                        className="h-4 w-4 cursor-not-allowed opacity-60 accent-brand"
+                        checked={r.status === 'Approved' ? true : selectedIds.has(key)}
+                        disabled={r.status === 'Approved'}
+                        onChange={() => r.status !== 'Approved' && toggleRow(key)}
+                        className={`h-4 w-4 accent-brand ${r.status === 'Approved' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                       />
-                    ) : null}
-                  </td>
-                  <td className={td}>{r.status}</td>
-                  <td className={`${td} text-center`}>
+                    </td>
+                    <td className={`${td} font-mono text-xs text-content-secondary`}>{r.empId}</td>
+                    <td className={`${td} font-medium`}>{r.name}</td>
+                    <td className={td}>{r.date}</td>
+                    <td className={td}>
+                      <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">{r.grade}</span>
+                    </td>
+                    <td className={`${td} text-center`}>{r.regularDayOT}</td>
+                    <td className={`${td} text-center`}>{r.regularDayOTAfter9PM}</td>
+                    <td className={`${td} text-center`}>{r.publicHolidayOT}</td>
+                    <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
+                    <td className={`${td} text-center`}>{r.timeInLieu}</td>
+                    <td className={`${td} text-center`}>
+                      {r.preApproved ? (
+                        <input type="checkbox" checked disabled className="h-4 w-4 cursor-not-allowed opacity-60 accent-brand" />
+                      ) : null}
+                    </td>
+                    <td className={td}>
+                      <span className={[
+                        'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                        r.status === 'Approved' ? 'bg-success/15 text-success' :
+                        r.status === 'Rejected' ? 'bg-danger/15 text-danger' :
+                        'bg-warning/15 text-warning',
+                      ].join(' ')}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className={`${td} font-semibold`}>AED {fmtAed(totalOTPay)}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Detail popup */}
+      {detail && (() => {
+        const r = detail.record;
+        const isRejected = r.status === 'Rejected';
+        const isPending  = r.status === 'Pending';
+        const { hhmm, decimal: workedDec } = formatWorked(r);
+        const totalOT = computeTotal(detail);
+        const { grossPay, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay } =
+          calcOtPay(r.grade, detail.regularDayOT, detail.regularDayOTAfter9PM, detail.publicHolidayOT);
+        const payRows: [string, string, string?][] = [
+          ['Gross Pay / Month', fmtAed(grossPay)],
+          ['Basic Pay / Month (88%)', fmtAed(basicPayMonth)],
+          ['Basic Hourly Rate', fmtAed(basicPayHour)],
+          ['Regular Day OT', fmtAed(regularOTPay), `${detail.regularDayOT} hr${detail.regularDayOT !== 1 ? 's' : ''} × 1.25`],
+          ['Regular Day OT after 9PM', fmtAed(after9PMOTPay), `${detail.regularDayOTAfter9PM} hr${detail.regularDayOTAfter9PM !== 1 ? 's' : ''} × 1.25`],
+          ['Public / Rest Holiday OT', fmtAed(holidayOTPay), `${detail.publicHolidayOT} hr${detail.publicHolidayOT !== 1 ? 's' : ''} × 1.75`],
+        ];
+
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm"
+            onClick={() => setDetail(null)}
+          >
+            <div className="flex min-h-full items-center justify-center p-4">
+            <div
+              className="w-full max-w-xl rounded-card border border-line bg-surface-raised shadow-panel"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-line px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-display text-sm font-semibold text-content-primary">{r.name}</h3>
+                      <span className="font-mono text-xs text-content-muted">{r.empId}</span>
+                      <span className="text-xs text-content-muted">·</span>
+                      <span className="text-xs text-content-muted">{r.date}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">Grade {r.grade}</span>
+                      <span className={[
+                        'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                        r.status === 'Approved' ? 'bg-success/15 text-success' :
+                        r.status === 'Rejected' ? 'bg-danger/15 text-danger' :
+                        'bg-warning/15 text-warning',
+                      ].join(' ')}>
+                        {r.status}
+                      </span>
+                      {r.preApproved && (
+                        <span className="rounded-full bg-surface-overlay border border-line px-2 py-0.5 text-[10px] font-medium text-content-secondary">Pre-Approved</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetail(null)}
+                  className="ml-2 shrink-0 rounded-lg p-1 text-content-muted transition hover:bg-surface-overlay hover:text-content-primary"
+                  aria-label="Close"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-3 px-4 py-3">
+                {/* Attendance */}
+                <div className="flex items-center gap-2 rounded-lg bg-surface-overlay px-3 py-2 text-xs">
+                  <span className="text-content-muted">In</span>
+                  <span className="font-bold text-content-primary">{r.clockIn}</span>
+                  <span className="text-content-muted mx-1">→</span>
+                  <span className="text-content-muted">Out</span>
+                  <span className="font-bold text-content-primary">{r.clockOut}</span>
+                  <span className="ml-auto font-semibold text-content-primary">{workedDec} hrs worked</span>
+                  <span className="text-content-muted">({hhmm})</span>
+                </div>
+
+                {/* Rejection reason */}
+                {isRejected && r.rejectionComment && (
+                  <div className="flex gap-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 text-danger mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {r.rejectionComment}</p>
+                  </div>
+                )}
+
+                {/* OT Hours */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">
+                    OT Hours {isPending && `· max ${workedDec} hrs`}
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      ['Reg Day OT', 'regularDayOT', detail.regularDayOT],
+                      ['After 9PM OT', 'regularDayOTAfter9PM', detail.regularDayOTAfter9PM],
+                      ['Holiday OT', 'publicHolidayOT', detail.publicHolidayOT],
+                    ] as [string, 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', number][]).map(([label, field, val]) => (
+                      <div key={field}>
+                        <label className="block text-[10px] font-medium text-content-secondary mb-1">{label} (Hrs)</label>
+                        {isPending ? (
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.5}
+                            value={val}
+                            onChange={(e) => updateDraft(field, Number(e.target.value))}
+                            className="w-full rounded-md border border-line bg-surface-sunken px-2 py-1.5 text-xs text-content-primary focus:border-brand focus:outline-none"
+                          />
+                        ) : (
+                          <div className="rounded-md border border-line bg-surface-overlay px-2 py-1.5 text-xs font-semibold text-content-primary">
+                            {val}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex items-center gap-4 rounded-md bg-surface-overlay px-3 py-1.5 text-xs">
+                    <span className="text-content-secondary">Total OT Approved</span>
+                    <span className="font-bold text-content-primary">{totalOT} hrs</span>
+                    <span className="ml-auto text-content-secondary">Time in Lieu</span>
+                    <span className="font-semibold text-content-primary">{r.timeInLieu} hrs</span>
+                  </div>
+                </div>
+
+                {/* Pay breakdown */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">OT Pay Calculation</p>
+                  <div className="divide-y divide-line rounded-lg border border-line bg-surface-overlay">
+                    {payRows.map(([label, amount, note]) => (
+                      <div key={label} className="flex items-center justify-between px-3 py-1.5">
+                        <p className="text-xs text-content-secondary">{label}{note && <span className="ml-1 text-[10px] text-content-muted">({note})</span>}</p>
+                        <span className="text-xs font-semibold text-content-primary">AED {amount}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between rounded-lg bg-brand/10 px-3 py-2">
+                    <p className="text-xs font-semibold text-brand">Total OT Pay</p>
+                    <span className="text-sm font-bold text-brand">AED {fmtAed(totalOTPay)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer actions */}
+              <div className="flex items-center justify-end gap-2 border-t border-line px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setDetail(null)}
+                  className="rounded-lg border border-line px-4 py-1.5 text-xs font-semibold text-content-secondary transition hover:bg-surface-overlay"
+                >
+                  Close
+                </button>
+                {isPending && (
+                  <>
                     <button
                       type="button"
-                      onClick={() => setClockPopup(r)}
-                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-content-secondary transition hover:border-brand hover:text-brand"
+                      onClick={() => commitDraft()}
+                      className="rounded-lg border border-brand px-4 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand/10"
                     >
-                      View
+                      Save
                     </button>
-                  </td>
-                </tr>
-              ); })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    <button
+                      type="button"
+                      onClick={() => { const d = detail!; setDetail(null); setRejectDialog({ mode: 'single', draft: d }); setRejectComment(''); }}
+                      className="rounded-lg border border-danger px-4 py-1.5 text-xs font-semibold text-danger transition hover:bg-danger/10"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => commitDraft('Approved')}
+                      className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                    >
+                      Approve
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            </div>
+          </div>
+        );
+      })()}
 
-      {/* Clock in/out modal */}
-      {clockPopup && (
+      {/* Reject comment dialog */}
+      {rejectDialog && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setClockPopup(null)}
+          className="fixed inset-0 z-60 overflow-y-auto bg-black/50 backdrop-blur-sm"
+          onClick={() => { setRejectDialog(null); setRejectComment(''); }}
         >
+          <div className="flex min-h-full items-center justify-center p-4">
           <div
-            className="w-80 rounded-card border border-line bg-surface-raised p-6 shadow-panel"
+            className="w-full max-w-md rounded-card border border-line bg-surface-raised shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-display text-base font-semibold text-content-primary">
-              Clock In / Out
-            </h3>
-            <p className="mt-0.5 text-sm text-content-secondary">{clockPopup.name}</p>
-            <p className="text-xs text-content-muted">{clockPopup.date}</p>
-
-            <div className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-surface-overlay px-5 py-4">
-              <div className="text-center">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-content-muted">Clock In</p>
-                <p className="mt-1.5 text-2xl font-bold text-content-primary">{clockPopup.clockIn}</p>
+            <div className="flex items-start gap-3 border-b border-line px-6 py-5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger/10">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-danger" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
               </div>
-              <div className="h-px flex-1 bg-line" />
-              <div className="text-center">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-content-muted">Clock Out</p>
-                <p className="mt-1.5 text-2xl font-bold text-content-primary">{clockPopup.clockOut}</p>
+              <div>
+                <h3 className="font-display text-base font-semibold text-content-primary">Reject Overtime Request</h3>
+                <p className="mt-0.5 text-sm text-content-secondary">
+                  {rejectDialog?.mode === 'bulk'
+                    ? `You are rejecting ${selectedIds.size} selected record${selectedIds.size !== 1 ? 's' : ''}.`
+                    : `You are rejecting ${rejectDialog?.mode === 'single' ? rejectDialog.draft.record.name : ''}'s record for ${rejectDialog?.mode === 'single' ? rejectDialog.draft.record.date : ''}.`}
+                </p>
               </div>
             </div>
-
-            {(() => {
-              const { hhmm, decimal } = formatWorked(clockPopup);
-              return (
-                <div className="mt-3 flex items-center justify-between rounded-xl border border-line px-5 py-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-content-muted">Total Time at Work</p>
-                    <p className="mt-1 text-sm font-semibold text-content-primary">{hhmm}</p>
-                  </div>
-                  <span className="rounded-full bg-brand-soft px-3 py-1 text-sm font-bold text-brand">
-                    {decimal} hrs
-                  </span>
-                </div>
-              );
-            })()}
-
-            <button
-              type="button"
-              onClick={() => setClockPopup(null)}
-              className="mt-5 w-full rounded-lg bg-brand py-2 text-sm font-semibold text-content-on-brand transition hover:bg-brand-strong"
-            >
-              Close
-            </button>
+            <div className="px-6 py-5">
+              <label className="block text-xs font-semibold uppercase tracking-[0.1em] text-content-muted mb-2">
+                Reason for Rejection <span className="text-danger">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={rejectComment}
+                onChange={(e) => setRejectComment(e.target.value)}
+                placeholder="Provide a clear reason so the employee understands the decision…"
+                className="w-full resize-none rounded-lg border border-line bg-surface-sunken px-3.5 py-2.5 text-sm text-content-primary placeholder:text-content-muted focus:border-danger focus:outline-none"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-line px-6 py-4">
+              <button
+                type="button"
+                onClick={() => { setRejectDialog(null); setRejectComment(''); }}
+                className="rounded-lg border border-line px-5 py-2 text-sm font-semibold text-content-secondary transition hover:bg-surface-overlay"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmReject}
+                disabled={!rejectComment.trim()}
+                className="rounded-lg bg-danger px-5 py-2 text-sm font-semibold text-white transition hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Confirm Reject
+              </button>
+            </div>
+          </div>
           </div>
         </div>
       )}

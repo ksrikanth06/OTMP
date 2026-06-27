@@ -1,14 +1,11 @@
 import { useState } from 'react';
-import { calcOtPay, fmtAed, DUMMY_HR_RECORDS } from '@/data/hrOvertimeData';
+import { calcOtPay, fmtAed, MONTHS } from '@/services/dataService';
+import type { HrOvertimeRecord } from '@/services/dataService';
+import { useAppSelector } from '@/store/hooks';
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const APPROVED_RECORDS = DUMMY_HR_RECORDS.filter((r) => r.hrStatus === 'Approved');
-
-function exportCsv(rows: typeof APPROVED_RECORDS, month: string, year: number) {
+function exportCsv(rows: HrOvertimeRecord[], month: string, year: number) {
   const headers = [
     'Emp ID', 'Employee Name', 'Grade', 'Date',
     'Regular OT (hrs)', 'OT After 9PM (hrs)', 'Holiday OT (hrs)', 'Total OT (hrs)',
@@ -43,28 +40,30 @@ function exportCsv(rows: typeof APPROVED_RECORDS, month: string, year: number) {
 }
 
 export function HrPayrollPage() {
+  const allHrRecords = useAppSelector((s) => s.ot.hrRecords);
+
   const today = new Date();
   const todayYear  = today.getFullYear();
   const todayMonth = today.getMonth() + 1;
 
   const [year, setYear]   = useState(todayYear);
   const [month, setMonth] = useState(todayMonth);
-  const [records, setRecords] = useState<typeof APPROVED_RECORDS | null>(null);
   const [filterName, setFilterName] = useState('');
 
   const years = Array.from({ length: 5 }, (_, i) => todayYear - i);
   const maxMonth = year === todayYear ? todayMonth : 12;
   const availableMonths = MONTHS.slice(0, maxMonth);
 
-  const handleFetch = () => setRecords(APPROVED_RECORDS);
+  const records = allHrRecords.filter((r) => {
+    const p = r.date.split(' ');
+    return r.hrStatus === 'Approved' && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+  });
 
-  const filtered = records
-    ? records.filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()))
-    : null;
+  const filtered = records.filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
 
-  const grandTotal = filtered ? filtered.reduce((sum, r) => {
+  const grandTotal = filtered.reduce((sum, r) => {
     return sum + calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT).totalOTPay;
-  }, 0) : 0;
+  }, 0);
 
   const selectClass =
     'rounded-lg border border-line bg-surface-sunken px-3 py-2 text-sm text-content-primary focus:border-brand focus:outline-none';
@@ -87,29 +86,22 @@ export function HrPayrollPage() {
       <div className="flex flex-wrap items-center gap-6 rounded-card border border-line bg-surface-raised p-5 shadow-panel">
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-content-muted">Year</span>
-          <select value={year} onChange={(e) => { setYear(Number(e.target.value)); setRecords(null); }} className={selectClass}>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={selectClass}>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-content-muted">Month</span>
-          <select value={month} onChange={(e) => { setMonth(Number(e.target.value)); setRecords(null); }} className={selectClass}>
+          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className={selectClass}>
             {availableMonths.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
           </select>
         </div>
-        <button
-          type="button"
-          onClick={handleFetch}
-          className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-content-on-brand transition hover:bg-brand-strong"
-        >
-          Fetch Records
-        </button>
 
         <div className="ml-auto">
           <button
             type="button"
-            onClick={() => filtered && exportCsv(filtered, MONTHS[month - 1], year)}
-            disabled={!filtered || filtered.length === 0}
+            onClick={() => exportCsv(filtered, MONTHS[month - 1], year)}
+            disabled={filtered.length === 0}
             className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -122,8 +114,7 @@ export function HrPayrollPage() {
       </div>
 
       {/* Table */}
-      {records && (
-        <div className="overflow-hidden rounded-card border border-line bg-surface-raised shadow-panel">
+      <div className="overflow-hidden rounded-card border border-line bg-surface-raised shadow-panel">
 
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
@@ -220,7 +211,7 @@ export function HrPayrollPage() {
             </table>
           </div>
         </div>
-      )}
     </div>
   );
 }
+
