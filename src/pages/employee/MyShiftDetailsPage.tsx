@@ -3,6 +3,7 @@ import { getShiftDetails, MONTHS } from '@/services/dataService';
 import type { ShiftRecord } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
 import { useAppDispatch } from '@/store/hooks';
+import { Modal } from '@/components/common/Modal';
 import { respondToOTAssignment } from '@/store/slices/shiftSlice';
 
 // ─── 24-hour timeline bar ─────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ function HoursBar({ r }: { r: ShiftRecord }) {
         <div
           className="absolute top-0 h-full"
           style={{ left: pct(shiftStartH), width: pct(shiftEndH - shiftStartH), backgroundColor: shiftColor }}
-          title={`Shift: ${r.shiftStart} – ${r.shiftEnd} (9 hrs)`}
+          title={`Shift: ${r.shiftStart} – ${r.shiftEnd} (8 hrs)`}
         />
 
         {/* OT block — amber; can be before, after, or continuous with regular shift */}
@@ -132,7 +133,7 @@ export function MyShiftDetailsPage() {
       return { ...r, otHours: undefined, otStatus: undefined, otStartTime: undefined, otEndTime: undefined, totalExpectedHours: r.shiftDurationHrs };
     }
     const otH = Number((toDecHours(a.otEnd) - toDecHours(a.otStart)).toFixed(2));
-    return { ...r, otHours: otH, otStatus: a.empStatus ?? 'Assigned', otStartTime: a.otStart, otEndTime: a.otEnd, totalExpectedHours: 9 + otH };
+    return { ...r, otHours: otH, otStatus: a.empStatus ?? 'Assigned', otStartTime: a.otStart, otEndTime: a.otEnd, totalExpectedHours: 8 + otH };
   });
 
   const handleAccept = (day: number) => {
@@ -285,7 +286,7 @@ export function MyShiftDetailsPage() {
                         <span className="text-content-muted">–</span>
                         <span className="font-mono text-sm font-semibold text-content-primary">{r.shiftEnd}</span>
                         <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">
-                          9 hrs
+                          8 hrs
                         </span>
                       </span>
                     ) : (
@@ -343,9 +344,8 @@ export function MyShiftDetailsPage() {
 
       {/* Change Request Modal */}
       {changeModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm">
-          <div className="flex min-h-full items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-card border border-line bg-surface-raised p-6 shadow-panel">
+        <Modal onClose={() => setChangeModal(null)}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-card border border-line bg-surface-raised p-6 shadow-panel">
             <h2 className="font-display text-lg font-semibold text-content-primary">Request Schedule Change</h2>
             <p className="mt-1 text-sm text-content-secondary">
               {changeModal.date} — Overtime assignment
@@ -373,8 +373,7 @@ export function MyShiftDetailsPage() {
               </button>
             </div>
           </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

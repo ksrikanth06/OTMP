@@ -15,15 +15,15 @@
 import type { AuthenticatedUser, LoginCredentials } from '@/types';
 import {
   DIRECTORY,
-  MANAGER_OT_RECORDS,
-  HR_OT_RECORDS,
+  OT_RECORDS,
   GRADE_GROSS,
   SHIFT_STARTS,
   JUNE_2026_SHIFT_PLAN,
   JUNE_2026_EMP_SHIFTS,
 } from './mockData';
 
-export type { HrStatus, HrOvertimeRecord, OvertimeRecord } from './mockData';
+export type { HrStatus, ManagerStatus, OTRecord } from './mockData';
+export { HR_ENTITIES, HR_DEPARTMENTS } from './mockData';
 
 export interface AttendanceRecord {
   date: string;
@@ -51,14 +51,30 @@ export const HALF_HOUR_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   return `${String(h).padStart(2, '0')}:${m}`;
 });
 
-export const REGULAR_OT_END_MINS = 21 * 60; // 21:00 — end of regular-hour OT window
+export const REGULAR_OT_END_MINS = 22 * 60; // 22:00 — end of regular-hour OT window
 
 const USE_MOCK = true;
+
+// ─── Initial state seeds for Redux slices ────────────────────────────────────
+// When USE_MOCK = false, slices start empty and populate via async thunks.
+
+export function getInitialOTRecords() {
+  if (USE_MOCK) return OT_RECORDS.map((r) => ({ ...r }));
+  // TODO: API — fetch and seed via Redux thunk instead
+  return [];
+}
+
+export function getInitialShiftPlan() {
+  if (USE_MOCK) return JUNE_2026_SHIFT_PLAN;
+  // TODO: API — fetch via Redux thunk instead
+  return {} as typeof JUNE_2026_SHIFT_PLAN;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface OtBreakdown {
   grossPay: number;
+  grossPayPerHour: number;
   basicPayMonth: number;
   basicPayHour: number;
   regularOTPay: number;
@@ -105,20 +121,16 @@ export const demoAccounts = DIRECTORY.filter((r) => !r.managerId).map(({ usernam
 
 // ─── Manager overtime records ─────────────────────────────────────────────────
 
-export function getManagerOvertimeRecords(
-  _managerId: string,
-  _year: number,
-  _month: number,
-) {
-  if (USE_MOCK) return MANAGER_OT_RECORDS;
-  // TODO: API — return await get(`/overtime/manager/${_managerId}?year=${_year}&month=${_month}`);
+export function getManagerOvertimeRecords(managerId: string, _year: number, _month: number) {
+  if (USE_MOCK) return OT_RECORDS.filter((r) => r.managerId === managerId);
+  // TODO: API — return await get(`/overtime/manager/${managerId}?year=${_year}&month=${_month}`);
   return [];
 }
 
 // ─── HR overtime records ──────────────────────────────────────────────────────
 
 export function getHrOvertimeRecords(_year: number, _month: number) {
-  if (USE_MOCK) return HR_OT_RECORDS;
+  if (USE_MOCK) return OT_RECORDS.filter((r) => r.managerStatus === 'Approved');
   // TODO: API — return await get(`/overtime/hr?year=${_year}&month=${_month}`);
   return [];
 }
@@ -132,13 +144,14 @@ export function calcOtPay(
   holidayOT: number,
 ): OtBreakdown {
   const grossPay      = GRADE_GROSS[grade] ?? 0;
+  const grossPayPerHour = (grossPay * 12) / 365 / 8; // annual gross to hourly
   const basicPayMonth = grossPay * 0.88;
   const basicPayHour  = (basicPayMonth * 12) / 365 / 8;
   const regularOTPay  = regularOT * basicPayHour * 1.25;
   const after9PMOTPay = after9PM  * basicPayHour * 1.5;
-  const holidayOTPay  = holidayOT * basicPayHour * 1.75;
+  const holidayOTPay  = (holidayOT * grossPayPerHour)+(holidayOT * basicPayHour * 0.5); // 1.5x for public holiday
   const totalOTPay    = regularOTPay + after9PMOTPay + holidayOTPay;
-  return { grossPay, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay };
+  return { grossPay, grossPayPerHour, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay };
 }
 
 export const fmtAed = (n: number) =>
@@ -150,14 +163,14 @@ export function getEmployeeShift(empIndex: number): ShiftInfo {
   if (USE_MOCK) {
     const start = SHIFT_STARTS[empIndex % SHIFT_STARTS.length];
     const [h, m] = start.split(':').map(Number);
-    const endH = h + 9;
+    const endH = h + 8;
     return {
       startTime: start,
       endTime: `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
     };
   }
   // TODO: API — return await get(`/shifts/employee/${empIndex}`);
-  return { startTime: '08:00', endTime: '17:00' };
+  return { startTime: '08:00', endTime: '16:00' };
 }
 
 export function isEmployeeOnLeave(empIndex: number, day: number): boolean {
@@ -193,7 +206,19 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
     const plan = JUNE_2026_SHIFT_PLAN[empId] ?? [];
     return plan.map((rec) => {
       const dateStr = `${String(rec.day).padStart(2, '0')} Jun 2026`;
-      if (!rec.isWorkday) return { date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Weekend' as const };
+      if (!rec.isWorkday) {
+        if (rec.clockIn && rec.clockOut) {
+          // Worked on an off day — keep Weekend status so the cell renders as Public Holiday
+          return {
+            date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Weekend' as const,
+            clockIn: rec.clockIn, clockOut: rec.clockOut,
+            totalHours: calcHours(rec.clockIn, rec.clockOut),
+            hasOT: true,
+            otStatus: rec.otStatus,
+          };
+        }
+        return { date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Weekend' as const };
+      }
       return {
         date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Present' as const,
         clockIn:    rec.clockIn,
@@ -209,13 +234,13 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
   const empNum = parseInt(userId.replace('EMP-', ''), 10);
   const empShift = JUNE_2026_EMP_SHIFTS[empId] ?? { start: '08:00', end: '17:00' };
 
-  const otForMonth = MANAGER_OT_RECORDS.filter((r) => {
+  const otForMonth = OT_RECORDS.filter((r) => {
     if (r.empId !== empId) return false;
     const [, mon, yr] = r.date.split(' ');
     return mon === monthShort && Number(yr) === year;
   });
 
-  const otByDay = new Map<number, (typeof MANAGER_OT_RECORDS)[0]>();
+  const otByDay = new Map<number, (typeof OT_RECORDS)[0]>();
   otForMonth.forEach((r) => otByDay.set(parseInt(r.date.split(' ')[0], 10), r));
 
   const leaveDays  = new Set([(empNum % 20) + 1, ((empNum * 3) % 25) + 1]);
@@ -240,7 +265,7 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
     const ot = otByDay.get(day);
     if (ot) {
       // OT record already has real clock-in/out derived from actual attendance
-      results.push({ date: dateStr, day, dayOfWeek: dayName, status: 'Present', clockIn: ot.clockIn, clockOut: ot.clockOut, totalHours: calcHours(ot.clockIn, ot.clockOut), hasOT: true, otStatus: ot.status });
+      results.push({ date: dateStr, day, dayOfWeek: dayName, status: 'Present', clockIn: ot.clockIn, clockOut: ot.clockOut, totalHours: calcHours(ot.clockIn, ot.clockOut), hasOT: true, otStatus: ot.managerStatus });
       continue;
     }
     const clockOut = offsetTime(empShift.end, outOffset);
@@ -252,18 +277,12 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
 
 export function getEmployeeOvertimeRequests(userId: string, year: number, month: number) {
   if (!USE_MOCK) return [];
-  const empId      = userId;
   const monthShort = MONTHS_SHORT[month - 1];
-  return MANAGER_OT_RECORDS.filter((r) => {
-    if (r.empId !== empId) return false;
+  return OT_RECORDS.filter((r) => {
+    if (r.empId !== userId) return false;
     const [, mon, yr] = r.date.split(' ');
     return mon === monthShort && Number(yr) === year;
   });
-}
-
-export function getHRRecordForOT(empId: string, date: string) {
-  if (!USE_MOCK) return null;
-  return HR_OT_RECORDS.find((r) => r.empId === empId && r.date === date) ?? null;
 }
 
 // ─── Employee shift details ───────────────────────────────────────────────────
@@ -306,12 +325,12 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
         date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, isWorkday: true,
         shiftStart:        rec.shiftStart,
         shiftEnd:          rec.shiftEnd,
-        shiftDurationHrs:  9,
+        shiftDurationHrs:  8,
         otHours:           rec.otHours,
         otStatus:          rec.otStatus,
         otStartTime:       rec.otStart,
         otEndTime:         rec.otEnd,
-        totalExpectedHours: 9 + (rec.otHours ?? 0),
+        totalExpectedHours: 8 + (rec.otHours ?? 0),
       };
     });
   }
@@ -322,12 +341,12 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
 
   const SHIFT_POOL = Array.from({ length: 10 }, (_, i) => `${String(4 + i).padStart(2, '0')}:00`);
 
-  const otForMonth = MANAGER_OT_RECORDS.filter((r) => {
+  const otForMonth = OT_RECORDS.filter((r) => {
     if (r.empId !== empId) return false;
     const [, mon, yr] = r.date.split(' ');
     return mon === monthShort && Number(yr) === year;
   });
-  const otByDay = new Map<number, (typeof MANAGER_OT_RECORDS)[0]>();
+  const otByDay = new Map<number, (typeof OT_RECORDS)[0]>();
   otForMonth.forEach((r) => otByDay.set(parseInt(r.date.split(' ')[0], 10), r));
 
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -342,7 +361,7 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
     if (dow === 0 || dow === 6) { results.push({ date: dateStr, day, dayOfWeek: dayName, isWorkday: false }); continue; }
 
     const shiftStart      = SHIFT_POOL[(empNum * 7 + day * 3) % SHIFT_POOL.length];
-    const shiftEnd        = addHrsToTime(shiftStart, 9);
+    const shiftEnd        = addHrsToTime(shiftStart, 8);
     const ot              = otByDay.get(day);
     const otHours         = ot?.totalOTApproved;
     const GAP_OPTIONS     = [0, 0, 30, 60];
@@ -352,9 +371,9 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
 
     results.push({
       date: dateStr, day, dayOfWeek: dayName, isWorkday: true,
-      shiftStart, shiftEnd, shiftDurationHrs: 9,
-      otHours, otStatus: ot?.status, otStartTime, otEndTime,
-      totalExpectedHours: 9 + (otHours ?? 0),
+      shiftStart, shiftEnd, shiftDurationHrs: 8,
+      otHours, otStatus: ot?.managerStatus, otStartTime, otEndTime,
+      totalExpectedHours: 8 + (otHours ?? 0),
     });
   }
 
@@ -368,7 +387,7 @@ export function getEmployeeShiftById(empId: string, year: number, month: number)
     const s = JUNE_2026_EMP_SHIFTS[empId];
     if (s) return { startTime: s.start, endTime: s.end };
   }
-  return { startTime: '08:00', endTime: '17:00' };
+  return { startTime: '08:00', endTime: '16:00' };
 }
 
 // Returns pre-populated OT keyed by `${userId}-${day}` — matches ShiftPlanPage's rowKey.

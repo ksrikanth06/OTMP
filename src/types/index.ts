@@ -13,6 +13,8 @@ export interface AuthenticatedUser {
   email: string;
   role: UserRole;
   jobTitle: string;
+  entity: string;
+  department: string;
 }
 
 export interface LoginCredentials {

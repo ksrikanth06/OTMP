@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { getEmployeeOvertimeRequests, MONTHS } from '@/services/dataService';
-import type { OvertimeRecord } from '@/services/dataService';
+import type { OTRecord } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
+import { Modal } from '@/components/common/Modal';
 
 type Tab = 'all' | 'pending' | 'approved' | 'rejected';
 
@@ -13,9 +14,9 @@ export function MyRequestsPage() {
 
   const [year, setYear]     = useState(todayYear);
   const [month, setMonth]   = useState(todayMonth);
-  const [records, setRecords] = useState<OvertimeRecord[] | null>(null);
+  const [records, setRecords] = useState<OTRecord[] | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('all');
-  const [detail, setDetail] = useState<OvertimeRecord | null>(null);
+  const [detail, setDetail] = useState<OTRecord | null>(null);
 
   if (!user) return null;
 
@@ -37,14 +38,14 @@ export function MyRequestsPage() {
   const counts = records
     ? {
         all:      records.length,
-        pending:  records.filter((r) => r.status === 'Pending').length,
-        approved: records.filter((r) => r.status === 'Approved').length,
-        rejected: records.filter((r) => r.status === 'Rejected').length,
+        pending:  records.filter((r) => r.managerStatus === 'Pending').length,
+        approved: records.filter((r) => r.managerStatus === 'Approved').length,
+        rejected: records.filter((r) => r.managerStatus === 'Rejected').length,
       }
     : null;
 
   const filtered = records
-    ? activeTab === 'all' ? records : records.filter((r) => r.status.toLowerCase() === activeTab)
+    ? activeTab === 'all' ? records : records.filter((r) => r.managerStatus.toLowerCase() === activeTab)
     : null;
 
   const selectClass =
@@ -148,7 +149,7 @@ export function MyRequestsPage() {
                   <th className={th}>Clock In</th>
                   <th className={th}>Clock Out</th>
                   <th className={th}>Reg Day OT (Hrs)</th>
-                  <th className={th}>After 9PM OT (Hrs)</th>
+                  <th className={th}>Non-Reg Hrs OT (Hrs)</th>
                   <th className={th}>Holiday OT (Hrs)</th>
                   <th className={th}>Total OT (Hrs)</th>
                   <th className={`${th} border-r-0`}>Status</th>
@@ -168,7 +169,7 @@ export function MyRequestsPage() {
                     <td className={`${td} text-center`}>{r.regularDayOTAfter9PM}</td>
                     <td className={`${td} text-center`}>{r.publicHolidayOT}</td>
                     <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
-                    <td className={`${td} border-r-0`}>{statusChip(r.status)}</td>
+                    <td className={`${td} border-r-0`}>{statusChip(r.managerStatus)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -179,14 +180,10 @@ export function MyRequestsPage() {
 
       {/* Detail popup */}
       {detail && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm"
-          onClick={() => setDetail(null)}
-        >
-          <div className="flex min-h-full items-center justify-center p-4">
+        <Modal onClose={() => setDetail(null)}>
           <div
+            role="dialog"
+            aria-modal="true"
             className="w-full max-w-md rounded-card border border-line bg-surface-raised shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
@@ -194,7 +191,7 @@ export function MyRequestsPage() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-display text-sm font-semibold text-content-primary">{detail.date}</h3>
-                  {statusChip(detail.status)}
+                  {statusChip(detail.managerStatus)}
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-xs text-content-muted">
                   <span>In: <span className="font-mono font-semibold text-success">{detail.clockIn}</span></span>
@@ -214,9 +211,9 @@ export function MyRequestsPage() {
             </div>
 
             <div className="space-y-3 px-5 py-4">
-              {detail.status === 'Rejected' && detail.rejectionComment && (
+              {detail.managerStatus === 'Rejected' && detail.managerRejectionComment && (
                 <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
-                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {detail.rejectionComment}</p>
+                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {detail.managerRejectionComment}</p>
                 </div>
               )}
 
@@ -225,7 +222,7 @@ export function MyRequestsPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     ['Reg Day OT', detail.regularDayOT],
-                    ['After 9PM OT', detail.regularDayOTAfter9PM],
+                    ['Non-Reg Hrs OT', detail.regularDayOTAfter9PM],
                     ['Holiday OT', detail.publicHolidayOT],
                   ].map(([label, val]) => (
                     <div key={String(label)} className="rounded-lg border border-line bg-surface-overlay px-3 py-2">
@@ -253,8 +250,7 @@ export function MyRequestsPage() {
               </button>
             </div>
           </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

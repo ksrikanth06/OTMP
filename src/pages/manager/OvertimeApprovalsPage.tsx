@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { calcOtPay, fmtAed, MONTHS } from '@/services/dataService';
-import type { OvertimeRecord } from '@/services/dataService';
+import type { OTRecord } from '@/services/dataService';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import {
   mkOTKey,
   managerApproveRecords, managerRejectRecords,
   managerApproveSingle, managerRejectSingle, managerSaveOTHours,
 } from '@/store/slices/otSlice';
+import { Modal } from '@/components/common/Modal';
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -15,10 +16,10 @@ const parseHours = (time: string): number => {
   return h + m / 60;
 };
 
-const workedHours = (r: OvertimeRecord) =>
+const workedHours = (r: OTRecord) =>
   Math.round((parseHours(r.clockOut) - parseHours(r.clockIn)) * 100) / 100;
 
-const formatWorked = (r: OvertimeRecord) => {
+const formatWorked = (r: OTRecord) => {
   const total = workedHours(r);
   const h = Math.floor(total);
   const m = Math.round((total - h) * 60);
@@ -26,7 +27,7 @@ const formatWorked = (r: OvertimeRecord) => {
 };
 
 interface DetailDraft {
-  record: OvertimeRecord;
+  record: OTRecord;
   regularDayOT: number;
   regularDayOTAfter9PM: number;
   publicHolidayOT: number;
@@ -37,7 +38,8 @@ const computeTotal = (d: DetailDraft) =>
 
 export function OvertimeApprovalsPage() {
   const dispatch = useAppDispatch();
-  const allManagerRecords = useAppSelector((s) => s.ot.managerRecords);
+  const allRecords  = useAppSelector((s) => s.ot.records);
+  const managerId   = useAppSelector((s) => s.auth.user?.id ?? '');
   const managerName = useAppSelector((s) => s.auth.user?.displayName ?? 'Manager');
 
   const today = new Date();
@@ -53,16 +55,16 @@ export function OvertimeApprovalsPage() {
   const [rejectDialog, setRejectDialog] = useState<{ mode: 'bulk' } | { mode: 'single'; draft: DetailDraft } | null>(null);
   const [rejectComment, setRejectComment] = useState('');
 
-  const records = allManagerRecords.filter((r) => {
+  const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
-    return p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+    return r.managerId === managerId && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
   });
 
-  const pendingCount  = records.filter((r) => r.status === 'Pending').length;
-  const approvedCount = records.filter((r) => r.status === 'Approved').length;
+  const pendingCount  = records.filter((r) => r.managerStatus === 'Pending').length;
+  const approvedCount = records.filter((r) => r.managerStatus === 'Approved').length;
 
   const filteredRecords = records
-    .filter((r) => activeTab === 'pending' ? r.status === 'Pending' : r.status === 'Approved')
+    .filter((r) => activeTab === 'pending' ? r.managerStatus === 'Pending' : r.managerStatus === 'Approved')
     .filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
 
   const years = Array.from({ length: 5 }, (_, i) => todayYear - i);
@@ -76,7 +78,7 @@ export function OvertimeApprovalsPage() {
     setSelectedIds(new Set());
   };
 
-  const openDetail = (r: OvertimeRecord) => {
+  const openDetail = (r: OTRecord) => {
     setDetail({ record: r, regularDayOT: r.regularDayOT, regularDayOTAfter9PM: r.regularDayOTAfter9PM, publicHolidayOT: r.publicHolidayOT });
   };
 
@@ -269,19 +271,20 @@ export function OvertimeApprovalsPage() {
               <th className={th}>Date</th>
               <th className={th}>Grade</th>
               <th className={th}>Regular Day OT (Hrs)</th>
-              <th className={th}>Regular Day OT after 9PM (Hrs)</th>
+              <th className={th}>Non-Reg Hrs OT (22:00–04:00) (Hrs)</th>
               <th className={th}>Public / Rest Holiday (Hrs)</th>
               <th className={th}>Total OT (Hrs)</th>
               <th className={th}>Time in Lieu (Hrs)</th>
               <th className={`${th} text-center`}>Pre-Approved</th>
               <th className={th}>Status</th>
+              {activeTab === 'approved' && <th className={th}>HR Approval</th>}
               <th className={th}>OT Pay (AED)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {filteredRecords.length === 0 ? (
               <tr>
-                <td colSpan={13} className="py-12 text-center text-sm text-content-muted">
+                <td colSpan={activeTab === 'approved' ? 14 : 13} className="py-12 text-center text-sm text-content-muted">
                   No {activeTab} records for {MONTHS[month - 1]} {year}.
                 </td>
               </tr>
@@ -298,10 +301,10 @@ export function OvertimeApprovalsPage() {
                     <td className={`${td} text-center`} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={r.status === 'Approved' ? true : selectedIds.has(key)}
-                        disabled={r.status === 'Approved'}
-                        onChange={() => r.status !== 'Approved' && toggleRow(key)}
-                        className={`h-4 w-4 accent-brand ${r.status === 'Approved' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                        checked={r.managerStatus === 'Approved' ? true : selectedIds.has(key)}
+                        disabled={r.managerStatus === 'Approved'}
+                        onChange={() => r.managerStatus !== 'Approved' && toggleRow(key)}
+                        className={`h-4 w-4 accent-brand ${r.managerStatus === 'Approved' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                       />
                     </td>
                     <td className={`${td} font-mono text-xs text-content-secondary`}>{r.empId}</td>
@@ -323,13 +326,25 @@ export function OvertimeApprovalsPage() {
                     <td className={td}>
                       <span className={[
                         'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                        r.status === 'Approved' ? 'bg-success/15 text-success' :
-                        r.status === 'Rejected' ? 'bg-danger/15 text-danger' :
+                        r.managerStatus === 'Approved' ? 'bg-success/15 text-success' :
+                        r.managerStatus === 'Rejected' ? 'bg-danger/15 text-danger' :
                         'bg-warning/15 text-warning',
                       ].join(' ')}>
-                        {r.status}
+                        {r.managerStatus}
                       </span>
                     </td>
+                    {activeTab === 'approved' && (
+                      <td className={td}>
+                        <span className={[
+                          'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                          r.hrStatus === 'Approved' ? 'bg-success/15 text-success' :
+                          r.hrStatus === 'Rejected' ? 'bg-danger/15 text-danger' :
+                          'bg-warning/15 text-warning',
+                        ].join(' ')}>
+                          {r.hrStatus ?? 'Pending'}
+                        </span>
+                      </td>
+                    )}
                     <td className={`${td} font-semibold`}>AED {fmtAed(totalOTPay)}</td>
                   </tr>
                 );
@@ -342,57 +357,52 @@ export function OvertimeApprovalsPage() {
       {/* Detail popup */}
       {detail && (() => {
         const r = detail.record;
-        const isRejected = r.status === 'Rejected';
-        const isPending  = r.status === 'Pending';
+        const isRejected = r.managerStatus === 'Rejected';
+        const isPending  = r.managerStatus === 'Pending';
         const { hhmm, decimal: workedDec } = formatWorked(r);
         const totalOT = computeTotal(detail);
-        const { grossPay, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay } =
+        const { grossPay, grossPayPerHour, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay } =
           calcOtPay(r.grade, detail.regularDayOT, detail.regularDayOTAfter9PM, detail.publicHolidayOT);
         const payRows: [string, string, string?][] = [
           ['Gross Pay / Month', fmtAed(grossPay)],
           ['Basic Pay / Month (88%)', fmtAed(basicPayMonth)],
           ['Basic Hourly Rate', fmtAed(basicPayHour)],
+          ['Gross Hourly Rate', fmtAed(grossPayPerHour)],
           ['Regular Day OT', fmtAed(regularOTPay), `${detail.regularDayOT} hr${detail.regularDayOT !== 1 ? 's' : ''} × 1.25`],
-          ['Regular Day OT after 9PM', fmtAed(after9PMOTPay), `${detail.regularDayOTAfter9PM} hr${detail.regularDayOTAfter9PM !== 1 ? 's' : ''} × 1.25`],
-          ['Public / Rest Holiday OT', fmtAed(holidayOTPay), `${detail.publicHolidayOT} hr${detail.publicHolidayOT !== 1 ? 's' : ''} × 1.75`],
+          ['Non-Reg Hrs OT (22:00–04:00)', fmtAed(after9PMOTPay), `${detail.regularDayOTAfter9PM} hr${detail.regularDayOTAfter9PM !== 1 ? 's' : ''} × 1.5`],
+          ['Public / Rest Holiday OT', fmtAed(holidayOTPay), `${detail.publicHolidayOT} hrs × Gross Rate + ${detail.publicHolidayOT} hrs × 0.5 × Basic Rate`],
         ];
 
         return (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm"
-            onClick={() => setDetail(null)}
-          >
-            <div className="flex min-h-full items-center justify-center p-4">
+          <Modal onClose={() => setDetail(null)}>
             <div
-              className="w-full max-w-xl rounded-card border border-line bg-surface-raised shadow-panel"
+              role="dialog"
+              aria-modal="true"
+              className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-card border border-line bg-surface-raised shadow-panel"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-display text-sm font-semibold text-content-primary">{r.name}</h3>
-                      <span className="font-mono text-xs text-content-muted">{r.empId}</span>
-                      <span className="text-xs text-content-muted">·</span>
-                      <span className="text-xs text-content-muted">{r.date}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">Grade {r.grade}</span>
-                      <span className={[
-                        'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                        r.status === 'Approved' ? 'bg-success/15 text-success' :
-                        r.status === 'Rejected' ? 'bg-danger/15 text-danger' :
-                        'bg-warning/15 text-warning',
-                      ].join(' ')}>
-                        {r.status}
-                      </span>
-                      {r.preApproved && (
-                        <span className="rounded-full bg-surface-overlay border border-line px-2 py-0.5 text-[10px] font-medium text-content-secondary">Pre-Approved</span>
-                      )}
-                    </div>
+              <div className="flex items-center justify-between border-b border-line px-4 py-3 shrink-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-display text-sm font-semibold text-content-primary">{r.name}</h3>
+                    <span className="font-mono text-xs text-content-muted">{r.empId}</span>
+                    <span className="text-xs text-content-muted">·</span>
+                    <span className="text-xs text-content-muted">{r.date}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">Grade {r.grade}</span>
+                    <span className={[
+                      'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                      r.managerStatus === 'Approved' ? 'bg-success/15 text-success' :
+                      r.managerStatus === 'Rejected' ? 'bg-danger/15 text-danger' :
+                      'bg-warning/15 text-warning',
+                    ].join(' ')}>
+                      {r.managerStatus}
+                    </span>
+                    {r.preApproved && (
+                      <span className="rounded-full bg-surface-overlay border border-line px-2 py-0.5 text-[10px] font-medium text-content-secondary">Pre-Approved</span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -407,86 +417,89 @@ export function OvertimeApprovalsPage() {
                 </button>
               </div>
 
-              <div className="space-y-3 px-4 py-3">
-                {/* Attendance */}
-                <div className="flex items-center gap-2 rounded-lg bg-surface-overlay px-3 py-2 text-xs">
-                  <span className="text-content-muted">In</span>
-                  <span className="font-bold text-content-primary">{r.clockIn}</span>
-                  <span className="text-content-muted mx-1">→</span>
-                  <span className="text-content-muted">Out</span>
-                  <span className="font-bold text-content-primary">{r.clockOut}</span>
-                  <span className="ml-auto font-semibold text-content-primary">{workedDec} hrs worked</span>
-                  <span className="text-content-muted">({hhmm})</span>
-                </div>
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="space-y-3 px-4 py-3">
+                  {/* Attendance */}
+                  <div className="flex items-center gap-2 rounded-lg bg-surface-overlay px-3 py-2 text-xs">
+                    <span className="text-content-muted">In</span>
+                    <span className="font-bold text-content-primary">{r.clockIn}</span>
+                    <span className="text-content-muted mx-1">→</span>
+                    <span className="text-content-muted">Out</span>
+                    <span className="font-bold text-content-primary">{r.clockOut}</span>
+                    <span className="ml-auto font-semibold text-content-primary">{workedDec} hrs worked</span>
+                    <span className="text-content-muted">({hhmm})</span>
+                  </div>
 
-                {/* Rejection reason */}
-                {isRejected && r.rejectionComment && (
-                  <div className="flex gap-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 text-danger mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {r.rejectionComment}</p>
-                  </div>
-                )}
+                  {/* Rejection reason */}
+                  {isRejected && r.managerRejectionComment && (
+                    <div className="flex gap-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 text-danger mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {r.managerRejectionComment}</p>
+                    </div>
+                  )}
 
-                {/* OT Hours */}
-                <div>
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">
-                    OT Hours {isPending && `· max ${workedDec} hrs`}
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {([
-                      ['Reg Day OT', 'regularDayOT', detail.regularDayOT],
-                      ['After 9PM OT', 'regularDayOTAfter9PM', detail.regularDayOTAfter9PM],
-                      ['Holiday OT', 'publicHolidayOT', detail.publicHolidayOT],
-                    ] as [string, 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', number][]).map(([label, field, val]) => (
-                      <div key={field}>
-                        <label className="block text-[10px] font-medium text-content-secondary mb-1">{label} (Hrs)</label>
-                        {isPending ? (
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.5}
-                            value={val}
-                            onChange={(e) => updateDraft(field, Number(e.target.value))}
-                            className="w-full rounded-md border border-line bg-surface-sunken px-2 py-1.5 text-xs text-content-primary focus:border-brand focus:outline-none"
-                          />
-                        ) : (
-                          <div className="rounded-md border border-line bg-surface-overlay px-2 py-1.5 text-xs font-semibold text-content-primary">
-                            {val}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                  {/* OT Hours */}
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">
+                      OT Hours {isPending && `· max ${workedDec} hrs`}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        ['Reg Day OT', 'regularDayOT', detail.regularDayOT],
+                        ['Non-Reg Hrs OT', 'regularDayOTAfter9PM', detail.regularDayOTAfter9PM],
+                        ['Holiday OT', 'publicHolidayOT', detail.publicHolidayOT],
+                      ] as [string, 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', number][]).map(([label, field, val]) => (
+                        <div key={field}>
+                          <label className="block text-[10px] font-medium text-content-secondary mb-1">{label} (Hrs)</label>
+                          {isPending ? (
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.5}
+                              value={val}
+                              onChange={(e) => updateDraft(field, Number(e.target.value))}
+                              className="w-full rounded-md border border-line bg-surface-sunken px-2 py-1.5 text-xs text-content-primary focus:border-brand focus:outline-none"
+                            />
+                          ) : (
+                            <div className="rounded-md border border-line bg-surface-overlay px-2 py-1.5 text-xs font-semibold text-content-primary">
+                              {val}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex items-center gap-4 rounded-md bg-surface-overlay px-3 py-1.5 text-xs">
+                      <span className="text-content-secondary">Total OT Approved</span>
+                      <span className="font-bold text-content-primary">{totalOT} hrs</span>
+                      <span className="ml-auto text-content-secondary">Time in Lieu</span>
+                      <span className="font-semibold text-content-primary">{r.timeInLieu} hrs</span>
+                    </div>
                   </div>
-                  <div className="mt-2 flex items-center gap-4 rounded-md bg-surface-overlay px-3 py-1.5 text-xs">
-                    <span className="text-content-secondary">Total OT Approved</span>
-                    <span className="font-bold text-content-primary">{totalOT} hrs</span>
-                    <span className="ml-auto text-content-secondary">Time in Lieu</span>
-                    <span className="font-semibold text-content-primary">{r.timeInLieu} hrs</span>
-                  </div>
-                </div>
 
-                {/* Pay breakdown */}
-                <div>
-                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">OT Pay Calculation</p>
-                  <div className="divide-y divide-line rounded-lg border border-line bg-surface-overlay">
-                    {payRows.map(([label, amount, note]) => (
-                      <div key={label} className="flex items-center justify-between px-3 py-1.5">
-                        <p className="text-xs text-content-secondary">{label}{note && <span className="ml-1 text-[10px] text-content-muted">({note})</span>}</p>
-                        <span className="text-xs font-semibold text-content-primary">AED {amount}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-1.5 flex items-center justify-between rounded-lg bg-brand/10 px-3 py-2">
-                    <p className="text-xs font-semibold text-brand">Total OT Pay</p>
-                    <span className="text-sm font-bold text-brand">AED {fmtAed(totalOTPay)}</span>
+                  {/* Pay breakdown */}
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">OT Pay Calculation</p>
+                    <div className="divide-y divide-line rounded-lg border border-line bg-surface-overlay">
+                      {payRows.map(([label, amount, note]) => (
+                        <div key={label} className="flex items-center justify-between px-3 py-1.5">
+                          <p className="text-xs text-content-secondary">{label}{note && <span className="ml-1 text-[10px] text-content-muted">({note})</span>}</p>
+                          <span className="text-xs font-semibold text-content-primary">AED {amount}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between rounded-lg bg-brand/10 px-3 py-2">
+                      <p className="text-xs font-semibold text-brand">Total OT Pay</p>
+                      <span className="text-sm font-bold text-brand">AED {fmtAed(totalOTPay)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer actions */}
-              <div className="flex items-center justify-end gap-2 border-t border-line px-4 py-3">
+              <div className="flex items-center justify-end gap-2 border-t border-line px-4 py-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setDetail(null)}
@@ -521,21 +534,16 @@ export function OvertimeApprovalsPage() {
                 )}
               </div>
             </div>
-            </div>
-          </div>
+          </Modal>
         );
       })()}
 
       {/* Reject comment dialog */}
       {rejectDialog && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-60 overflow-y-auto bg-black/50 backdrop-blur-sm"
-          onClick={() => { setRejectDialog(null); setRejectComment(''); }}
-        >
-          <div className="flex min-h-full items-center justify-center p-4">
+        <Modal zClass="z-60" onClose={() => { setRejectDialog(null); setRejectComment(''); }}>
           <div
+            role="dialog"
+            aria-modal="true"
             className="w-full max-w-md rounded-card border border-line bg-surface-raised shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
@@ -585,8 +593,7 @@ export function OvertimeApprovalsPage() {
               </button>
             </div>
           </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

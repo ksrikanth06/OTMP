@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { calcOtPay, fmtAed, MONTHS } from '@/services/dataService';
-import type { HrOvertimeRecord } from '@/services/dataService';
+import type { OTRecord } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function exportCsv(rows: HrOvertimeRecord[], month: string, year: number) {
+function exportCsv(rows: OTRecord[], month: string, year: number) {
   const headers = [
     'Emp ID', 'Employee Name', 'Grade', 'Date',
-    'Regular OT (hrs)', 'OT After 9PM (hrs)', 'Holiday OT (hrs)', 'Total OT (hrs)',
+    'Regular OT (hrs)', 'Non-Reg Hrs OT (hrs)', 'Holiday OT (hrs)', 'Total OT (hrs)',
     'Approved By (Manager)',
-    'Regular OT Pay (AED)', 'OT After 9PM Pay (AED)', 'Holiday OT Pay (AED)', 'Total OT Pay (AED)',
+    'Regular OT Pay (AED)', 'Non-Reg Hrs OT Pay (AED)', 'Holiday OT Pay (AED)', 'Total OT Pay (AED)',
   ];
 
   const escape = (v: string | number) => {
@@ -23,7 +23,7 @@ function exportCsv(rows: HrOvertimeRecord[], month: string, year: number) {
     return [
       r.empId, r.name, r.grade, r.date,
       r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT, r.totalOTApproved,
-      r.approvedByManager,
+      r.managerName ?? '',
       pay.regularOTPay.toFixed(2), pay.after9PMOTPay.toFixed(2),
       pay.holidayOTPay.toFixed(2), pay.totalOTPay.toFixed(2),
     ].map(escape).join(',');
@@ -40,7 +40,7 @@ function exportCsv(rows: HrOvertimeRecord[], month: string, year: number) {
 }
 
 export function HrPayrollPage() {
-  const allHrRecords = useAppSelector((s) => s.ot.hrRecords);
+  const allRecords = useAppSelector((s) => s.ot.records);
 
   const today = new Date();
   const todayYear  = today.getFullYear();
@@ -54,9 +54,9 @@ export function HrPayrollPage() {
   const maxMonth = year === todayYear ? todayMonth : 12;
   const availableMonths = MONTHS.slice(0, maxMonth);
 
-  const records = allHrRecords.filter((r) => {
+  const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
-    return r.hrStatus === 'Approved' && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+    return r.managerStatus === 'Approved' && r.hrStatus === 'Approved' && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
   });
 
   const filtered = records.filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
@@ -154,12 +154,12 @@ export function HrPayrollPage() {
                   <th className={thClass}>Grade</th>
                   <th className={thClass}>Date</th>
                   <th className={thClass + ' text-center'}>Reg OT</th>
-                  <th className={thClass + ' text-center'}>After 9PM</th>
+                  <th className={thClass + ' text-center'}>Non-Reg Hrs</th>
                   <th className={thClass + ' text-center'}>Holiday</th>
                   <th className={thClass + ' text-center'}>Total OT</th>
                   <th className={thClass}>Approved By</th>
                   <th className={thClass + ' text-right'}>Reg Pay</th>
-                  <th className={thClass + ' text-right'}>9PM Pay</th>
+                  <th className={thClass + ' text-right'}>Non-Reg Pay</th>
                   <th className={thClass + ' text-right'}>Holiday Pay</th>
                   <th className={thClass + ' text-right'}>Total Pay (AED)</th>
                 </tr>
@@ -184,7 +184,7 @@ export function HrPayrollPage() {
                         <td className={tdClass + ' text-center'}>{r.regularDayOTAfter9PM}</td>
                         <td className={tdClass + ' text-center'}>{r.publicHolidayOT}</td>
                         <td className={tdClass + ' text-center font-semibold'}>{r.totalOTApproved}</td>
-                        <td className={tdClass + ' truncate text-content-secondary'}>{r.approvedByManager}</td>
+                        <td className={tdClass + ' truncate text-content-secondary'}>{r.managerName}</td>
                         <td className={tdClass + ' text-right'}>{fmtAed(pay.regularOTPay)}</td>
                         <td className={tdClass + ' text-right'}>{fmtAed(pay.after9PMOTPay)}</td>
                         <td className={tdClass + ' text-right'}>{fmtAed(pay.holidayOTPay)}</td>

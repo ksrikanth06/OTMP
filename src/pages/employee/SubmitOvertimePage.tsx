@@ -87,7 +87,7 @@ export function SubmitOvertimePage() {
             {[
               ['Date', form.date],
               ['Regular Day OT', `${reg} hrs`],
-              ['Regular Day OT after 9PM', `${late} hrs`],
+              ['Non-Reg Hrs OT (22:00–04:00)', `${late} hrs`],
               ['Public / Holiday OT', `${hol} hrs`],
               ['Total OT', `${totalOT} hrs`],
               ...(form.notes ? [['Notes', form.notes] as [string, string]] : []),
@@ -146,7 +146,7 @@ export function SubmitOvertimePage() {
           <div className="grid grid-cols-3 gap-3">
             {([
               ['regularDayOT',          'Reg Day OT'],
-              ['regularDayOTAfter9PM',  'After 9PM OT'],
+              ['regularDayOTAfter9PM',  'Non-Reg Hrs OT'],
               ['publicHolidayOT',       'Holiday OT'],
             ] as [keyof FormState, string][]).map(([field, label]) => (
               <div key={field}>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Modal } from '@/components/common/Modal';
 import {
   getDirectReports,
   getShiftDetails,
@@ -303,14 +304,10 @@ export function EmployeeShiftPlanPage() {
 
       {/* OT Popup */}
       {popup && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm"
-          onClick={() => setPopup(null)}
-        >
-          <div className="flex min-h-full items-center justify-center p-4">
+        <Modal onClose={() => setPopup(null)}>
           <div
+            role="dialog"
+            aria-modal="true"
             className="w-full max-w-[460px] rounded-card border border-line bg-surface-raised p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
@@ -429,8 +426,7 @@ export function EmployeeShiftPlanPage() {
               </button>
             </div>
           </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

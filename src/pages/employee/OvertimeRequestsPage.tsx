@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { getEmployeeAttendance, MONTHS, REGULAR_OT_END_MINS } from '@/services/dataService';
-import type { OvertimeRecord, AttendanceRecord } from '@/services/dataService';
+import type { OTRecord, AttendanceRecord } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
+import { Modal } from '@/components/common/Modal';
 
 
 type Tab = 'all' | 'pending' | 'approved' | 'rejected';
@@ -106,8 +107,9 @@ function toMins(t: string) {
 }
 
 function calcOTBreakdown(clockIn: string, clockOut: string, totalHours: number) {
-  const regularShiftMins = 9 * 60;
-  const otMins = Math.round((totalHours - 9) * 60);
+  const regularShiftMins = 8 * 60;
+  if (totalHours <= 8.75) return { regularDayOT: 0, regularDayOTAfter9PM: 0, publicHolidayOT: 0 };
+  const otMins = Math.round((totalHours - 8) * 60);
   if (otMins <= 0) return { regularDayOT: 0, regularDayOTAfter9PM: 0, publicHolidayOT: 0 };
 
   const otStartMins = toMins(clockIn) + regularShiftMins;
@@ -133,8 +135,7 @@ function calcOTBreakdown(clockIn: string, clockOut: string, totalHours: number) 
 
 export function OvertimeRequestsPage() {
   const user = useAppSelector((s) => s.auth.user);
-  const allManagerRecords = useAppSelector((s) => s.ot.managerRecords);
-  const hrRecords = useAppSelector((s) => s.ot.hrRecords);
+  const allRecords = useAppSelector((s) => s.ot.records);
   const today = new Date();
   const todayYear  = today.getFullYear();
   const todayMonth = today.getMonth() + 1;
@@ -143,7 +144,7 @@ export function OvertimeRequestsPage() {
   const [year, setYear]       = useState(todayYear);
   const [month, setMonth]     = useState(todayMonth);
   const [activeTab, setActiveTab] = useState<Tab>('all');
-  const [detail, setDetail]   = useState<OvertimeRecord | null>(null);
+  const [detail, setDetail]   = useState<OTRecord | null>(null);
 
   // New-request modal state
   const [showForm, setShowForm]   = useState(false);
@@ -162,7 +163,7 @@ export function OvertimeRequestsPage() {
   const maxMonth = year === todayYear ? todayMonth : 12;
   const availableMonths = MONTHS.slice(0, maxMonth);
 
-  const records = allManagerRecords.filter((r) => {
+  const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
     return r.empId === user.id && p[1] === MON_SHORT[month - 1] && Number(p[2]) === year;
   });
@@ -172,11 +173,11 @@ export function OvertimeRequestsPage() {
     setMonth((m) => Math.min(m, y === todayYear ? todayMonth : 12));
   };
 
-  const effectiveStatus = (r: OvertimeRecord): string => {
-    if (r.status !== 'Approved') return r.status;
-    const hr = hrRecords.find((h) => h.empId === r.empId && h.date === r.date);
-    if (hr?.hrStatus === 'Approved') return 'Approved';
-    if (hr?.hrStatus === 'Rejected') return 'Rejected';
+  const effectiveStatus = (r: OTRecord): string => {
+    if (r.managerStatus === 'Rejected') return 'Rejected';
+    if (r.managerStatus === 'Pending')  return 'Pending';
+    if (r.hrStatus === 'Approved')      return 'Approved';
+    if (r.hrStatus === 'Rejected')      return 'Rejected';
     return 'Pending';
   };
 
@@ -362,7 +363,7 @@ export function OvertimeRequestsPage() {
                 <tr>
                   <th className={th}>Date</th>
                   <th className={th}>Reg Day OT (Hrs)</th>
-                  <th className={th}>After 9PM OT (Hrs)</th>
+                  <th className={th}>Non-Reg Hrs OT (Hrs)</th>
                   <th className={th}>Holiday OT (Hrs)</th>
                   <th className={th}>Total OT (Hrs)</th>
                   <th className={th}>Manager Approval</th>
@@ -381,14 +382,11 @@ export function OvertimeRequestsPage() {
                     <td className={`${td} text-center`}>{r.regularDayOTAfter9PM}</td>
                     <td className={`${td} text-center`}>{r.publicHolidayOT}</td>
                     <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
-                    <td className={td}>{statusChip(r.status)}</td>
+                    <td className={td}>{statusChip(r.managerStatus)}</td>
                     <td className={`${td} border-r-0`}>
-                      {(() => {
-                        const hr = hrRecords.find((h) => h.empId === r.empId && h.date === r.date);
-                        if (r.status !== 'Approved') return <span className="text-content-muted">—</span>;
-                        if (!hr) return statusChip('Pending');
-                        return statusChip(hr.hrStatus === 'Approved' ? 'Approved' : hr.hrStatus === 'Rejected' ? 'Rejected' : 'Pending');
-                      })()}
+                      {r.managerStatus !== 'Approved'
+                        ? <span className="text-content-muted">—</span>
+                        : statusChip(r.hrStatus ?? 'Pending')}
                     </td>
                   </tr>
                 ))}
@@ -399,14 +397,10 @@ export function OvertimeRequestsPage() {
 
       {/* Detail popup */}
       {detail && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm"
-          onClick={() => setDetail(null)}
-        >
-          <div className="flex min-h-full items-center justify-center p-4">
+        <Modal onClose={() => setDetail(null)}>
           <div
+            role="dialog"
+            aria-modal="true"
             className="w-full max-w-md rounded-card border border-line bg-surface-raised shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
@@ -433,21 +427,19 @@ export function OvertimeRequestsPage() {
               </button>
             </div>
             {(() => {
-              const hrRec = hrRecords.find((r) => r.empId === detail.empId && r.date === detail.date) ?? null;
-
               const managerState: StepState =
-                detail.status === 'Approved' ? 'done'
-                : detail.status === 'Rejected' ? 'rejected'
+                detail.managerStatus === 'Approved' ? 'done'
+                : detail.managerStatus === 'Rejected' ? 'rejected'
                 : 'pending';
 
               const hrState: StepState =
                 managerState !== 'done' ? 'waiting'
-                : hrRec?.hrStatus === 'Approved' ? 'done'
-                : hrRec?.hrStatus === 'Rejected' ? 'rejected'
+                : detail.hrStatus === 'Approved' ? 'done'
+                : detail.hrStatus === 'Rejected' ? 'rejected'
                 : 'pending';
 
-              const managerName = hrRec?.approvedByManager
-                ? `Reviewed by ${hrRec.approvedByManager}`
+              const managerName = detail.managerName
+                ? `Reviewed by ${detail.managerName}`
                 : undefined;
 
               return (
@@ -465,7 +457,7 @@ export function OvertimeRequestsPage() {
                         role="Line Manager"
                         state={managerState}
                         name={managerState === 'done' ? managerName : undefined}
-                        comment={managerState === 'rejected' ? detail.rejectionComment : undefined}
+                        comment={managerState === 'rejected' ? detail.managerRejectionComment : undefined}
                       />
                       <ApprovalStep
                         role="HR"
@@ -481,7 +473,7 @@ export function OvertimeRequestsPage() {
                     <div className="grid grid-cols-3 gap-2">
                       {[
                         ['Reg Day OT',    detail.regularDayOT],
-                        ['After 9PM OT',  detail.regularDayOTAfter9PM],
+                        ['Non-Reg Hrs OT',  detail.regularDayOTAfter9PM],
                         ['Holiday OT',    detail.publicHolidayOT],
                       ].map(([label, val]) => (
                         <div key={String(label)} className="rounded-lg border border-line bg-surface-overlay px-3 py-2">
@@ -510,20 +502,15 @@ export function OvertimeRequestsPage() {
               </button>
             </div>
           </div>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* New Request modal */}
       {showForm && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm"
-          onClick={handleClose}
-        >
-          <div className="flex min-h-full items-center justify-center p-4">
+        <Modal onClose={handleClose}>
           <div
+            role="dialog"
+            aria-modal="true"
             className="w-full max-w-lg rounded-card border border-line bg-surface-raised shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
@@ -557,7 +544,7 @@ export function OvertimeRequestsPage() {
                   {[
                     ['Date', form.date],
                     ['Regular Day OT', `${reg} hrs`],
-                    ['Regular Day OT after 9PM', `${late} hrs`],
+                    ['Non-Reg Hrs OT (22:00–04:00)', `${late} hrs`],
                     ['Public / Holiday OT', `${hol} hrs`],
                     ['Total OT', `${totalOT} hrs`],
                     ...(form.notes ? [['Notes', form.notes] as [string, string]] : []),
@@ -643,7 +630,7 @@ export function OvertimeRequestsPage() {
                   <div className="grid grid-cols-3 gap-3">
                     {([
                       ['regularDayOT',          'Reg Day OT'],
-                      ['regularDayOTAfter9PM',  'After 9PM OT'],
+                      ['regularDayOTAfter9PM',  'Non-Reg Hrs OT'],
                       ['publicHolidayOT',       'Holiday OT'],
                     ] as [keyof FormState, string][]).map(([field, label]) => (
                       <div key={field}>
@@ -705,8 +692,7 @@ export function OvertimeRequestsPage() {
               </form>
             )}
           </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

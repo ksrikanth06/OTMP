@@ -1,45 +1,17 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { MANAGER_OT_RECORDS, HR_OT_RECORDS } from '@/services/mockData';
-import type { OvertimeRecord, HrOvertimeRecord } from '@/services/mockData';
+import { getInitialOTRecords } from '@/services/dataService';
+import type { OTRecord } from '@/services/dataService';
 
 export const mkOTKey = (empId: string, date: string) => `${empId}|${date}`;
 
 interface OTState {
-  managerRecords: OvertimeRecord[];
-  hrRecords: HrOvertimeRecord[];
+  records: OTRecord[];
 }
 
 const initialState: OTState = {
-  managerRecords: MANAGER_OT_RECORDS.map((r) => ({ ...r })),
-  hrRecords: HR_OT_RECORDS.map((r) => ({ ...r })),
+  records: getInitialOTRecords(),
 };
-
-function pushHRRecord(
-  state: OTState,
-  rec: OvertimeRecord,
-  managerName: string,
-  overrideHours?: { regularDayOT: number; regularDayOTAfter9PM: number; publicHolidayOT: number; totalOTApproved: number },
-) {
-  const existing = state.hrRecords.find((r) => r.empId === rec.empId && r.date === rec.date);
-  const hours = overrideHours ?? {
-    regularDayOT: rec.regularDayOT,
-    regularDayOTAfter9PM: rec.regularDayOTAfter9PM,
-    publicHolidayOT: rec.publicHolidayOT,
-    totalOTApproved: rec.totalOTApproved,
-  };
-  if (existing) {
-    Object.assign(existing, hours);
-  } else {
-    state.hrRecords.push({
-      empId: rec.empId, name: rec.name, grade: rec.grade, date: rec.date,
-      clockIn: rec.clockIn, clockOut: rec.clockOut,
-      ...hours,
-      approvedByManager: managerName,
-      hrStatus: 'Pending',
-    });
-  }
-}
 
 const otSlice = createSlice({
   name: 'ot',
@@ -48,22 +20,24 @@ const otSlice = createSlice({
     managerApproveRecords(state, action: PayloadAction<{ keys: string[]; managerName: string }>) {
       const { keys, managerName } = action.payload;
       const keySet = new Set(keys);
-      for (const r of state.managerRecords) {
+      for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.status = 'Approved';
-        delete r.rejectionComment;
-        pushHRRecord(state, r, managerName);
+        r.managerStatus = 'Approved';
+        r.managerName   = managerName;
+        delete r.managerRejectionComment;
+        if (r.hrStatus === null) r.hrStatus = 'Pending';
       }
     },
 
     managerRejectRecords(state, action: PayloadAction<{ keys: string[]; comment: string }>) {
       const { keys, comment } = action.payload;
       const keySet = new Set(keys);
-      for (const r of state.managerRecords) {
-        if (keySet.has(mkOTKey(r.empId, r.date))) {
-          r.status = 'Rejected';
-          r.rejectionComment = comment;
-        }
+      for (const r of state.records) {
+        if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
+        r.managerStatus = 'Rejected';
+        r.managerRejectionComment = comment;
+        r.hrStatus = null;
+        delete r.hrRejectionComment;
       }
     },
 
@@ -73,15 +47,16 @@ const otSlice = createSlice({
       managerName: string;
     }>) {
       const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, managerName } = action.payload;
-      const rec = state.managerRecords.find((r) => r.empId === empId && r.date === date);
+      const rec = state.records.find((r) => r.empId === empId && r.date === date);
       if (!rec) return;
       rec.regularDayOT = regularDayOT;
       rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
       rec.publicHolidayOT = publicHolidayOT;
       rec.totalOTApproved = totalOTApproved;
-      rec.status = 'Approved';
-      delete rec.rejectionComment;
-      pushHRRecord(state, rec, managerName, { regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved });
+      rec.managerStatus = 'Approved';
+      rec.managerName   = managerName;
+      delete rec.managerRejectionComment;
+      if (rec.hrStatus === null) rec.hrStatus = 'Pending';
     },
 
     managerRejectSingle(state, action: PayloadAction<{
@@ -90,14 +65,16 @@ const otSlice = createSlice({
       comment: string;
     }>) {
       const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, comment } = action.payload;
-      const rec = state.managerRecords.find((r) => r.empId === empId && r.date === date);
+      const rec = state.records.find((r) => r.empId === empId && r.date === date);
       if (!rec) return;
       rec.regularDayOT = regularDayOT;
       rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
       rec.publicHolidayOT = publicHolidayOT;
       rec.totalOTApproved = totalOTApproved;
-      rec.status = 'Rejected';
-      rec.rejectionComment = comment;
+      rec.managerStatus = 'Rejected';
+      rec.managerRejectionComment = comment;
+      rec.hrStatus = null;
+      delete rec.hrRejectionComment;
     },
 
     managerSaveOTHours(state, action: PayloadAction<{
@@ -105,7 +82,7 @@ const otSlice = createSlice({
       regularDayOT: number; regularDayOTAfter9PM: number; publicHolidayOT: number; totalOTApproved: number;
     }>) {
       const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved } = action.payload;
-      const rec = state.managerRecords.find((r) => r.empId === empId && r.date === date);
+      const rec = state.records.find((r) => r.empId === empId && r.date === date);
       if (!rec) return;
       rec.regularDayOT = regularDayOT;
       rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
@@ -115,22 +92,20 @@ const otSlice = createSlice({
 
     hrApproveRecords(state, action: PayloadAction<{ keys: string[] }>) {
       const keySet = new Set(action.payload.keys);
-      for (const r of state.hrRecords) {
-        if (keySet.has(mkOTKey(r.empId, r.date))) {
-          r.hrStatus = 'Approved';
-          delete r.rejectionComment;
-        }
+      for (const r of state.records) {
+        if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
+        r.hrStatus = 'Approved';
+        delete r.hrRejectionComment;
       }
     },
 
     hrRejectRecords(state, action: PayloadAction<{ keys: string[]; comment?: string }>) {
       const { keys, comment } = action.payload;
       const keySet = new Set(keys);
-      for (const r of state.hrRecords) {
-        if (keySet.has(mkOTKey(r.empId, r.date))) {
-          r.hrStatus = 'Rejected';
-          if (comment) r.rejectionComment = comment;
-        }
+      for (const r of state.records) {
+        if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
+        r.hrStatus = 'Rejected';
+        if (comment) r.hrRejectionComment = comment;
       }
     },
   },

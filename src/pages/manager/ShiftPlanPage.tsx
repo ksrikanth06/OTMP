@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Avatar } from '@/components/common/Avatar';
+import { Modal } from '@/components/common/Modal';
 import { getDirectReports, getEmployeeShiftById, isEmployeeOnLeave, MONTHS, DAY_NAMES, HALF_HOUR_OPTIONS } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
 import { useAppDispatch } from '@/store/hooks';
@@ -141,7 +142,7 @@ export function ShiftPlanPage() {
           Shift Plan
         </h1>
         <p className="mt-1 text-sm text-content-secondary">
-          Each employee has a 9-hour shift within 04:00–22:00. Click an employee to allot overtime.
+          Each employee has an 8-hour shift within 04:00–22:00. Click an employee to allot overtime.
         </p>
       </section>
 
@@ -337,14 +338,10 @@ export function ShiftPlanPage() {
 
       {/* Popup */}
       {popup && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm"
-          onClick={() => setPopup(null)}
-        >
-          <div className="flex min-h-full items-center justify-center p-6">
+        <Modal onClose={() => setPopup(null)}>
           <div
+            role="dialog"
+            aria-modal="true"
             className="w-full max-w-[440px] rounded-card border border-line bg-surface-raised p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
@@ -492,8 +489,7 @@ export function ShiftPlanPage() {
               </button>
             </div>
           </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

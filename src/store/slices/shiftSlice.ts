@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { JUNE_2026_SHIFT_PLAN } from '@/services/mockData';
+import { getInitialShiftPlan } from '@/services/dataService';
 
 export interface OTAssignment {
   empId: string;
@@ -18,7 +18,7 @@ interface ShiftState {
 }
 
 const initialAssignments: OTAssignment[] = [];
-for (const [empId, days] of Object.entries(JUNE_2026_SHIFT_PLAN)) {
+for (const [empId, days] of Object.entries(getInitialShiftPlan())) {
   for (const rec of days) {
     if (rec.isWorkday && rec.otStart && rec.otEnd) {
       initialAssignments.push({
