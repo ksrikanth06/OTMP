@@ -9,7 +9,7 @@ import { NavItem, UserRole } from '@/types';
 
 const employeeNav: NavItem[] = [
   { key: 'emp-dashboard', label: 'Dashboard', path: '/home', icon: 'grid' },
-  { key: 'emp-overtime', label: 'Overtime Requests', path: '/home/overtime-requests', icon: 'list' },
+  { key: 'emp-overtime', label: 'My Overtime Work', path: '/home/overtime-requests', icon: 'list' },
   { key: 'emp-timesheet',     label: 'My Attendance',    path: '/home/timesheet',     icon: 'calendar' },
   { key: 'emp-shift-details', label: 'My Shift Details', path: '/home/shift-details', icon: 'clock'    },
 ];

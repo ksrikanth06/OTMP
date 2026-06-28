@@ -82,16 +82,23 @@ export function OvertimeApprovalsPage() {
     setDetail({ record: r, regularDayOT: r.regularDayOT, regularDayOTAfter9PM: r.regularDayOTAfter9PM, publicHolidayOT: r.publicHolidayOT });
   };
 
+  const maxOTHours = (r: OTRecord) => {
+    const worked = workedHours(r);
+    // Holiday / off-day records: all hours count as OT, no shift deduction
+    if (r.publicHolidayOT > 0 && r.regularDayOT === 0) return worked;
+    return Math.round(Math.max(0, worked - 8) * 100) / 100;
+  };
+
   const updateDraft = (field: 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', value: number) => {
     setDetail((prev) => {
       if (!prev) return prev;
       const clamped = Math.max(0, value);
-      const maxWorked = workedHours(prev.record);
+      const maxOT = maxOTHours(prev.record);
       const others =
         (field === 'regularDayOT'        ? 0 : prev.regularDayOT) +
         (field === 'regularDayOTAfter9PM' ? 0 : prev.regularDayOTAfter9PM) +
         (field === 'publicHolidayOT'      ? 0 : prev.publicHolidayOT);
-      const safe = Math.round(Math.min(clamped, Math.max(0, maxWorked - others)) * 100) / 100;
+      const safe = Math.round(Math.min(clamped, Math.max(0, maxOT - others)) * 100) / 100;
       return { ...prev, [field]: safe };
     });
   };
@@ -360,6 +367,7 @@ export function OvertimeApprovalsPage() {
         const isRejected = r.managerStatus === 'Rejected';
         const isPending  = r.managerStatus === 'Pending';
         const { hhmm, decimal: workedDec } = formatWorked(r);
+        const otMax   = maxOTHours(r);
         const totalOT = computeTotal(detail);
         const { grossPay, grossPayPerHour, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay } =
           calcOtPay(r.grade, detail.regularDayOT, detail.regularDayOTAfter9PM, detail.publicHolidayOT);
@@ -444,7 +452,7 @@ export function OvertimeApprovalsPage() {
                   {/* OT Hours */}
                   <div>
                     <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">
-                      OT Hours {isPending && `· max ${workedDec} hrs`}
+                      OT Hours {isPending && `· max ${otMax} hrs (${workedDec} worked${r.publicHolidayOT > 0 && r.regularDayOT === 0 ? '' : ' − 8h shift'})`}
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       {([
@@ -458,6 +466,7 @@ export function OvertimeApprovalsPage() {
                             <input
                               type="number"
                               min={0}
+                              max={otMax}
                               step={0.5}
                               value={val}
                               onChange={(e) => updateDraft(field, Number(e.target.value))}

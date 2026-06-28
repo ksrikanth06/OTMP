@@ -184,7 +184,7 @@ const OT_RECORDS_WORKDAY: OTRecord[] = [
   { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '02 Jun 2026', clockIn: '06:02', clockOut: '19:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 0, preApproved: true,  managerStatus: 'Approved', managerName: 'Rama Krishna',       hrStatus: 'Approved' },
   { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '05 Jun 2026', clockIn: '06:00', clockOut: '17:00', regularDayOT: 3,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 0, preApproved: true,  managerStatus: 'Approved', managerName: 'Rama Krishna',       hrStatus: 'Approved' },
   { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '10 Jun 2026', clockIn: '05:55', clockOut: '17:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 1, preApproved: false, managerStatus: 'Pending',                                     hrStatus: null       },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '15 Jun 2026', clockIn: '06:00', clockOut: '19:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 0, preApproved: true,  managerStatus: 'Pending',                                     hrStatus: null       },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '15 Jun 2026', clockIn: '06:00', clockOut: '19:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 13, totalOTApproved: 13,  timeInLieu: 0, preApproved: true,  managerStatus: 'Pending',                                     hrStatus: null       },
   { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '19 Jun 2026', clockIn: '06:05', clockOut: '18:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: false, managerStatus: 'Pending',                                     hrStatus: null       },
 
   // ── Priya Nair EMP-1004  (G7, shift 07:00–15:00, mgr: Rama Krishna) ───────
@@ -197,7 +197,7 @@ const OT_RECORDS_WORKDAY: OTRecord[] = [
   // ── Marcus Webb EMP-1005  (G4, shift 08:00–16:00, mgr: Rama Krishna) ──────
   { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '03 Jun 2026', clockIn: '08:05', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 1, preApproved: true,  managerStatus: 'Approved', managerName: 'Rama Krishna',       hrStatus: 'Approved' },
   { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '08 Jun 2026', clockIn: '08:00', clockOut: '19:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 0, preApproved: false, managerStatus: 'Approved', managerName: 'Rama Krishna',       hrStatus: 'Approved' },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '15 Jun 2026', clockIn: '08:10', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: true,  managerStatus: 'Pending',                                     hrStatus: null       },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '15 Jun 2026', clockIn: '08:10', clockOut: '20:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 11.83, totalOTApproved: 11.83, timeInLieu: 0, preApproved: true,  managerStatus: 'Pending',                                     hrStatus: null       },
   { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '22 Jun 2026', clockIn: '07:58', clockOut: '20:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 1, preApproved: true,  managerStatus: 'Pending',                                     hrStatus: null       },
 
   // ── Layla Hassan EMP-1006  (G6, shift 09:00–17:00, mgr: Rama Krishna) ─────
@@ -252,6 +252,7 @@ export interface June2026DayRecord {
   day: number;
   dayOfWeek: string;
   isWorkday: boolean;
+  isPublicHoliday?: boolean;
   shiftStart?: string;
   shiftEnd?: string;
   otStart?: string;
@@ -283,6 +284,7 @@ const J26_DOW = [
 ];
 
 const J26_WORKDAYS = new Set([1,2,3,4,5,8,9,10,11,12,15,16,17,18,19,22,23,24,25,26,29,30]);
+const J26_PUBLIC_HOLIDAYS = new Set([15]); // June 15 is a public holiday
 
 // OT schedule per employee — only on workdays, starts at or after shift end
 const J26_OT: Record<string, Array<{
@@ -422,24 +424,26 @@ function buildJune2026ShiftPlan(): Record<string, June2026DayRecord[]> {
       const dayOfWeek = J26_DOW[i];
       const isWorkday = J26_WORKDAYS.has(day);
 
+      const isPublicHoliday = J26_PUBLIC_HOLIDAYS.has(day);
+
       if (!isWorkday) {
         const offDay = (J26_OFF_DAY[empId] ?? []).find((o) => o.day === day);
         if (offDay) {
           const hrs = calcOffDayHours(offDay.clockIn, offDay.clockOut);
           return {
-            day, dayOfWeek, isWorkday,
+            day, dayOfWeek, isWorkday, isPublicHoliday: true,
             clockIn: offDay.clockIn, clockOut: offDay.clockOut,
             otStart: offDay.clockIn, otEnd: offDay.clockOut,
             otHours: hrs,
             otStatus: otStatusMap.get(`${empId}-${day}`) ?? 'Pending',
           };
         }
-        return { day, dayOfWeek, isWorkday };
+        return { day, dayOfWeek, isWorkday, isPublicHoliday: false };
       }
 
       const ot = otMap.get(day);
       return {
-        day, dayOfWeek, isWorkday,
+        day, dayOfWeek, isWorkday, isPublicHoliday,
         shiftStart: shift.start,
         shiftEnd:   shift.end,
         otStart:    ot?.otStart,

@@ -208,7 +208,7 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
       const dateStr = `${String(rec.day).padStart(2, '0')} Jun 2026`;
       if (!rec.isWorkday) {
         if (rec.clockIn && rec.clockOut) {
-          // Worked on an off day — keep Weekend status so the cell renders as Public Holiday
+          // Worked on a week-off day — publicHolidayOT rate applies
           return {
             date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Weekend' as const,
             clockIn: rec.clockIn, clockOut: rec.clockOut,
@@ -218,6 +218,17 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
           };
         }
         return { date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Weekend' as const };
+      }
+      if (rec.isPublicHoliday) {
+        // Public holiday — any hours worked count as publicHolidayOT
+        return {
+          date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Holiday' as const,
+          clockIn:    rec.clockIn,
+          clockOut:   rec.clockOut,
+          totalHours: rec.clockIn && rec.clockOut ? calcHours(rec.clockIn, rec.clockOut) : undefined,
+          hasOT:      !!(rec.clockIn && rec.clockOut),
+          otStatus:   rec.otStatus,
+        };
       }
       return {
         date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Present' as const,

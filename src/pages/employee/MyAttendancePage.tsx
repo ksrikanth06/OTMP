@@ -25,16 +25,18 @@ function DayCell({
   const cellBg =
     isWeekend ? 'bg-violet-500/10' :
     isLeave   ? 'bg-brand/5' :
-    isHoliday ? 'bg-warning/5' :
+    isHoliday ? 'bg-amber-500/10' :
     '';
+
+  const isClickable = isPresent || (isWeekend && hasAttendance) || (isHoliday && hasAttendance);
 
   return (
     <div
-      onClick={isPresent || (isWeekend && hasAttendance) ? onClick : undefined}
+      onClick={isClickable ? onClick : undefined}
       className={[
         'relative flex min-h-[76px] flex-col border-b border-r border-line p-1.5 transition',
         cellBg,
-        isPresent || (isWeekend && hasAttendance) ? 'cursor-pointer hover:bg-violet-500/20' : '',
+        isClickable ? 'cursor-pointer hover:bg-violet-500/20' : '',
       ].join(' ')}
     >
       <div className="flex items-center justify-between">
@@ -51,12 +53,12 @@ function DayCell({
           {record.day}
         </span>
 
-        {isWeekend && <span className="rounded bg-violet-500/15 px-1 py-px text-[8px] font-semibold text-violet-600">Public Holiday</span>}
+        {isWeekend && <span className="rounded bg-violet-500/15 px-1 py-px text-[8px] font-semibold text-violet-600">Week Off</span>}
         {isLeave   && <span className="rounded bg-brand-soft px-1 py-px text-[8px] font-semibold text-brand">Leave</span>}
-        {isHoliday && <span className="rounded bg-warning/15 px-1 py-px text-[8px] font-semibold text-warning">Holiday</span>}
+        {isHoliday && <span className="rounded bg-amber-500/15 px-1 py-px text-[8px] font-semibold text-amber-600">Public Holiday</span>}
       </div>
 
-      {(isPresent || (isWeekend && hasAttendance)) && (
+      {(isPresent || (isWeekend && hasAttendance) || (isHoliday && hasAttendance)) && (
         <div className="mt-1 flex-1 space-y-0.5">
           <div className="flex items-center gap-1">
             <span className="w-4 text-[8px] font-semibold uppercase text-content-muted">In</span>
@@ -115,10 +117,11 @@ export function MyAttendancePage() {
 
   const summary = records
     ? {
-        present: records.filter((r) => r.status === 'Present').length,
-        leave:   records.filter((r) => r.status === 'Leave').length,
-        weekend: records.filter((r) => r.status === 'Weekend' || r.status === 'Holiday').length,
-        otDays:  records.filter((r) => r.hasOT).length,
+        present:        records.filter((r) => r.status === 'Present').length,
+        leave:          records.filter((r) => r.status === 'Leave').length,
+        weekOff:        records.filter((r) => r.status === 'Weekend').length,
+        publicHolidays: records.filter((r) => r.status === 'Holiday').length,
+        otDays:         records.filter((r) => r.hasOT).length,
       }
     : null;
 
@@ -164,12 +167,13 @@ export function MyAttendancePage() {
 
       {/* Summary cards */}
       {summary && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           {[
-            { label: 'Days Present',  value: summary.present, color: 'text-success',       accent: 'bg-success' },
-            { label: 'Days on Leave', value: summary.leave,   color: 'text-brand',         accent: 'bg-brand'   },
-            { label: 'Public Holiday', value: summary.weekend, color: 'text-violet-600',    accent: 'bg-violet-500' },
-            { label: 'OT Days',       value: summary.otDays,  color: 'text-warning',       accent: 'bg-warning' },
+            { label: 'Days Present',    value: summary.present,        color: 'text-success',     accent: 'bg-success'     },
+            { label: 'Days on Leave',   value: summary.leave,          color: 'text-brand',       accent: 'bg-brand'       },
+            { label: 'Week Off',        value: summary.weekOff,        color: 'text-violet-600',  accent: 'bg-violet-500'  },
+            { label: 'Public Holiday',  value: summary.publicHolidays, color: 'text-amber-600',   accent: 'bg-amber-500'   },
+            { label: 'OT Days',         value: summary.otDays,         color: 'text-warning',     accent: 'bg-warning'     },
           ].map(({ label, value, color, accent }) => (
             <div key={label} className="rounded-card border border-line bg-surface-raised p-5 shadow-panel">
               <div className={`h-1 w-8 rounded-full ${accent} mb-3 opacity-60`} />
@@ -187,10 +191,11 @@ export function MyAttendancePage() {
           <div className="flex items-center gap-5 border-b border-line px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-content-muted mr-2">Legend</p>
             {[
-              { dot: 'bg-success',  label: 'Present' },
-              { dot: 'bg-warning',  label: 'Overtime' },
-              { dot: 'bg-brand',    label: 'Leave' },
-              { dot: 'bg-violet-500', label: 'Public Holiday' },
+              { dot: 'bg-success',    label: 'Present' },
+              { dot: 'bg-warning',    label: 'Overtime' },
+              { dot: 'bg-brand',      label: 'Leave' },
+              { dot: 'bg-violet-500', label: 'Week Off' },
+              { dot: 'bg-amber-500',  label: 'Public Holiday' },
             ].map(({ dot, label }) => (
               <div key={label} className="flex items-center gap-1.5">
                 <span className={`h-2 w-2 rounded-full ${dot}`} />

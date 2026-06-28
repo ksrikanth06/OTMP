@@ -291,10 +291,9 @@ export function OvertimeRequestsPage() {
       <section className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold text-content-primary sm:text-3xl">
-            Overtime Requests
-          </h1>
+             My Overtime Work          </h1>
           <p className="mt-1 text-sm text-content-secondary">
-            View your overtime submissions or raise a new request.
+            View your overtime work or Log a new Overtime Request.
           </p>
         </div>
         <button

@@ -78,14 +78,22 @@ export function TopHeader({ onToggleNav, navOpen }: TopHeaderProps) {
             role="menu"
             className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-64 origin-top-right animate-fade-up overflow-hidden rounded-card border border-line bg-surface-overlay shadow-panel"
           >
-            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+            <div className="flex items-start gap-3 border-b border-line px-4 py-3">
               <Avatar name={user.displayName} size={40} />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-content-primary">
                   {user.displayName}
                 </p>
                 <p className="truncate text-xs text-content-secondary">{user.email}</p>
-                <p className="mt-0.5 text-xs font-medium text-brand">{roleLabels[user.role]}</p>
+                <p className="mt-0.5 text-xs font-medium text-brand">{user.jobTitle}</p>
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="truncate text-xs text-content-muted">
+                    <span className="font-medium text-content-secondary">Entity: </span>{user.entity}
+                  </p>
+                  <p className="truncate text-xs text-content-muted">
+                    <span className="font-medium text-content-secondary">Dept: </span>{user.department}
+                  </p>
+                </div>
               </div>
             </div>
             <button
