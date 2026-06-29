@@ -17,49 +17,51 @@ const otSlice = createSlice({
   name: 'ot',
   initialState,
   reducers: {
-    managerApproveRecords(state, action: PayloadAction<{ keys: string[]; managerName: string }>) {
-      const { keys, managerName } = action.payload;
+    // ── L1 Line Manager actions ──────────────────────────────────────────────
+
+    l1ApproveRecords(state, action: PayloadAction<{ keys: string[]; l1ManagerName: string }>) {
+      const { keys, l1ManagerName } = action.payload;
       const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.managerStatus = 'Approved';
-        r.managerName   = managerName;
-        delete r.managerRejectionComment;
-        if (r.hrStatus === null) r.hrStatus = 'Pending';
+        r.l1Status = 'Approved';
+        r.l1ManagerName = l1ManagerName;
+        delete r.l1RejectionComment;
+        if (r.l2Status === null) r.l2Status = 'Pending';
       }
     },
 
-    managerRejectRecords(state, action: PayloadAction<{ keys: string[]; comment: string }>) {
+    l1RejectRecords(state, action: PayloadAction<{ keys: string[]; comment: string }>) {
       const { keys, comment } = action.payload;
       const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.managerStatus = 'Rejected';
-        r.managerRejectionComment = comment;
-        r.hrStatus = null;
-        delete r.hrRejectionComment;
+        r.l1Status = 'Rejected';
+        r.l1RejectionComment = comment;
+        r.l2Status = null;
+        delete r.l2RejectionComment;
       }
     },
 
-    managerApproveSingle(state, action: PayloadAction<{
+    l1ApproveSingle(state, action: PayloadAction<{
       empId: string; date: string;
       regularDayOT: number; regularDayOTAfter9PM: number; publicHolidayOT: number; totalOTApproved: number;
-      managerName: string;
+      l1ManagerName: string;
     }>) {
-      const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, managerName } = action.payload;
+      const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, l1ManagerName } = action.payload;
       const rec = state.records.find((r) => r.empId === empId && r.date === date);
       if (!rec) return;
       rec.regularDayOT = regularDayOT;
       rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
       rec.publicHolidayOT = publicHolidayOT;
       rec.totalOTApproved = totalOTApproved;
-      rec.managerStatus = 'Approved';
-      rec.managerName   = managerName;
-      delete rec.managerRejectionComment;
-      if (rec.hrStatus === null) rec.hrStatus = 'Pending';
+      rec.l1Status = 'Approved';
+      rec.l1ManagerName = l1ManagerName;
+      delete rec.l1RejectionComment;
+      if (rec.l2Status === null) rec.l2Status = 'Pending';
     },
 
-    managerRejectSingle(state, action: PayloadAction<{
+    l1RejectSingle(state, action: PayloadAction<{
       empId: string; date: string;
       regularDayOT: number; regularDayOTAfter9PM: number; publicHolidayOT: number; totalOTApproved: number;
       comment: string;
@@ -71,10 +73,10 @@ const otSlice = createSlice({
       rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
       rec.publicHolidayOT = publicHolidayOT;
       rec.totalOTApproved = totalOTApproved;
-      rec.managerStatus = 'Rejected';
-      rec.managerRejectionComment = comment;
-      rec.hrStatus = null;
-      delete rec.hrRejectionComment;
+      rec.l1Status = 'Rejected';
+      rec.l1RejectionComment = comment;
+      rec.l2Status = null;
+      delete rec.l2RejectionComment;
     },
 
     managerSaveOTHours(state, action: PayloadAction<{
@@ -90,31 +92,35 @@ const otSlice = createSlice({
       rec.totalOTApproved = totalOTApproved;
     },
 
-    hrApproveRecords(state, action: PayloadAction<{ keys: string[] }>) {
-      const keySet = new Set(action.payload.keys);
+    // ── L2 Head of Department actions ────────────────────────────────────────
+
+    l2ApproveRecords(state, action: PayloadAction<{ keys: string[]; l2ManagerName: string }>) {
+      const { keys, l2ManagerName } = action.payload;
+      const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.hrStatus = 'Approved';
-        delete r.hrRejectionComment;
+        r.l2Status = 'Approved';
+        r.l2ManagerName = l2ManagerName;
+        delete r.l2RejectionComment;
       }
     },
 
-    hrRejectRecords(state, action: PayloadAction<{ keys: string[]; comment?: string }>) {
+    l2RejectRecords(state, action: PayloadAction<{ keys: string[]; comment?: string }>) {
       const { keys, comment } = action.payload;
       const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.hrStatus = 'Rejected';
-        if (comment) r.hrRejectionComment = comment;
+        r.l2Status = 'Rejected';
+        if (comment) r.l2RejectionComment = comment;
       }
     },
   },
 });
 
 export const {
-  managerApproveRecords, managerRejectRecords,
-  managerApproveSingle, managerRejectSingle, managerSaveOTHours,
-  hrApproveRecords, hrRejectRecords,
+  l1ApproveRecords, l1RejectRecords,
+  l1ApproveSingle, l1RejectSingle, managerSaveOTHours,
+  l2ApproveRecords, l2RejectRecords,
 } = otSlice.actions;
 
 export default otSlice.reducer;

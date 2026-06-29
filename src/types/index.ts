@@ -12,6 +12,8 @@ export interface AuthenticatedUser {
   displayName: string;
   email: string;
   role: UserRole;
+  /** Distinguishes L1 (Line Manager) from L2 (Head of Department). Only set for Manager role. */
+  managerLevel?: 'L1' | 'L2';
   jobTitle: string;
   entity: string;
   department: string;

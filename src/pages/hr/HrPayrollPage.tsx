@@ -9,7 +9,7 @@ function exportCsv(rows: OTRecord[], month: string, year: number) {
   const headers = [
     'Emp ID', 'Employee Name', 'Grade', 'Date',
     'Regular OT (hrs)', 'Non-Reg Hrs OT (hrs)', 'Holiday OT (hrs)', 'Total OT (hrs)',
-    'Approved By (Manager)',
+    'L1 Line Manager', 'L2 Head of Department',
     'Regular OT Pay (AED)', 'Non-Reg Hrs OT Pay (AED)', 'Holiday OT Pay (AED)', 'Total OT Pay (AED)',
   ];
 
@@ -23,7 +23,7 @@ function exportCsv(rows: OTRecord[], month: string, year: number) {
     return [
       r.empId, r.name, r.grade, r.date,
       r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT, r.totalOTApproved,
-      r.managerName ?? '',
+      r.l1ManagerName ?? '', r.l2ManagerName ?? '',
       pay.regularOTPay.toFixed(2), pay.after9PMOTPay.toFixed(2),
       pay.holidayOTPay.toFixed(2), pay.totalOTPay.toFixed(2),
     ].map(escape).join(',');
@@ -56,7 +56,7 @@ export function HrPayrollPage() {
 
   const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
-    return r.managerStatus === 'Approved' && r.hrStatus === 'Approved' && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+    return r.l1Status === 'Approved' && r.l2Status === 'Approved' && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
   });
 
   const filtered = records.filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
@@ -67,8 +67,8 @@ export function HrPayrollPage() {
 
   const selectClass =
     'rounded-lg border border-line bg-surface-sunken px-3 py-2 text-sm text-content-primary focus:border-brand focus:outline-none';
-  const thClass = 'whitespace-nowrap border-r border-line px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-content-muted last:border-r-0';
-  const tdClass = 'border-r border-line px-2 py-2.5 text-xs text-content-primary last:border-r-0';
+  const th = 'border-r border-line px-1.5 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.06em] text-content-muted last:border-r-0';
+  const td = 'border-r border-line px-1.5 py-1.5 text-[10px] text-content-primary last:border-r-0';
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -78,7 +78,7 @@ export function HrPayrollPage() {
           Export Overtime Payroll Data
         </h1>
         <p className="mt-1 text-sm text-content-secondary">
-          HR-approved overtime records with calculated pay. Export to CSV for payroll processing.
+          Fully-approved overtime records with calculated pay. Export to CSV for payroll processing.
         </p>
       </section>
 
@@ -96,7 +96,6 @@ export function HrPayrollPage() {
             {availableMonths.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
           </select>
         </div>
-
         <div className="ml-auto">
           <button
             type="button"
@@ -114,104 +113,96 @@ export function HrPayrollPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-card border border-line bg-surface-raised shadow-panel">
-
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
-            <input
-              type="text"
-              placeholder="Filter by employee name…"
-              value={filterName}
-              onChange={(e) => setFilterName(e.target.value)}
-              className="w-48 rounded-lg border border-line bg-surface-sunken px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-brand focus:outline-none"
-            />
-            <span className="text-xs text-content-muted">
-              {filtered!.length} record{filtered!.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          <div>
-            <table className="w-full table-fixed border-collapse text-left">
-              <colgroup>
-                <col className="w-24" />  {/* emp id */}
-                <col className="w-36" />  {/* name */}
-                <col className="w-12" />  {/* grade */}
-                <col className="w-24" />  {/* date */}
-                <col className="w-14" />  {/* reg ot */}
-                <col className="w-16" />  {/* after 9pm */}
-                <col className="w-14" />  {/* holiday */}
-                <col className="w-14" />  {/* total ot */}
-                <col className="w-28" />  {/* approved by */}
-                <col className="w-24" />  {/* reg pay */}
-                <col className="w-24" />  {/* 9pm pay */}
-                <col className="w-24" />  {/* holiday pay */}
-                <col className="w-28" />  {/* total pay */}
-              </colgroup>
-              <thead className="bg-surface-overlay">
-                <tr>
-                  <th className={thClass}>Emp ID</th>
-                  <th className={thClass}>Name</th>
-                  <th className={thClass}>Grade</th>
-                  <th className={thClass}>Date</th>
-                  <th className={thClass + ' text-center'}>Reg OT</th>
-                  <th className={thClass + ' text-center'}>Non-Reg Hrs</th>
-                  <th className={thClass + ' text-center'}>Holiday</th>
-                  <th className={thClass + ' text-center'}>Total OT</th>
-                  <th className={thClass}>Approved By</th>
-                  <th className={thClass + ' text-right'}>Reg Pay</th>
-                  <th className={thClass + ' text-right'}>Non-Reg Pay</th>
-                  <th className={thClass + ' text-right'}>Holiday Pay</th>
-                  <th className={thClass + ' text-right'}>Total Pay (AED)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {filtered!.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className="py-10 text-center text-sm text-content-muted">
-                      No records found.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered!.map((r) => {
-                    const pay = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
-                    return (
-                      <tr key={`${r.empId}-${r.date}`} className="hover:bg-surface-overlay/60">
-                        <td className={tdClass + ' truncate font-mono'}>{r.empId}</td>
-                        <td className={tdClass + ' truncate font-semibold'}>{r.name}</td>
-                        <td className={tdClass}>{r.grade}</td>
-                        <td className={tdClass + ' whitespace-nowrap'}>{r.date}</td>
-                        <td className={tdClass + ' text-center'}>{r.regularDayOT}</td>
-                        <td className={tdClass + ' text-center'}>{r.regularDayOTAfter9PM}</td>
-                        <td className={tdClass + ' text-center'}>{r.publicHolidayOT}</td>
-                        <td className={tdClass + ' text-center font-semibold'}>{r.totalOTApproved}</td>
-                        <td className={tdClass + ' truncate text-content-secondary'}>{r.managerName}</td>
-                        <td className={tdClass + ' text-right'}>{fmtAed(pay.regularOTPay)}</td>
-                        <td className={tdClass + ' text-right'}>{fmtAed(pay.after9PMOTPay)}</td>
-                        <td className={tdClass + ' text-right'}>{fmtAed(pay.holidayOTPay)}</td>
-                        <td className={tdClass + ' text-right font-semibold text-green-700'}>{fmtAed(pay.totalOTPay)}</td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-
-              {/* Grand total footer */}
-              {filtered!.length > 0 && (
-                <tfoot className="border-t-2 border-line bg-surface-overlay">
-                  <tr>
-                    <td colSpan={12} className="px-2 py-2.5 text-right text-xs font-semibold text-content-secondary">
-                      Grand Total
-                    </td>
-                    <td className="px-2 py-2.5 text-right text-sm font-bold text-brand">
-                      AED {fmtAed(grandTotal)}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
+      <div className="rounded-card border border-line bg-surface-raised shadow-panel">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3">
+          <input
+            type="text"
+            placeholder="Filter by employee name…"
+            value={filterName}
+            onChange={(e) => setFilterName(e.target.value)}
+            className="w-48 rounded-lg border border-line bg-surface-sunken px-3 py-2 text-sm text-content-primary placeholder:text-content-muted focus:border-brand focus:outline-none"
+          />
+          <span className="text-xs text-content-muted">
+            {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+          </span>
         </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <colgroup>
+              <col style={{ width: '72px'  }} /> {/* emp id */}
+              <col style={{ width: '100px' }} /> {/* name */}
+              <col style={{ width: '40px'  }} /> {/* grade */}
+              <col style={{ width: '72px'  }} /> {/* date */}
+              <col style={{ width: '48px'  }} /> {/* total ot */}
+              <col style={{ width: '88px'  }} /> {/* l1 approver */}
+              <col style={{ width: '88px'  }} /> {/* l2 approver */}
+              <col style={{ width: '68px'  }} /> {/* reg pay */}
+              <col style={{ width: '68px'  }} /> {/* non-reg pay */}
+              <col style={{ width: '68px'  }} /> {/* holiday pay */}
+              <col style={{ width: '80px'  }} /> {/* total pay */}
+            </colgroup>
+            <thead className="bg-surface-overlay">
+              <tr>
+                <th className={th}>Emp ID</th>
+                <th className={th}>Name</th>
+                <th className={th}>Grd</th>
+                <th className={th}>Date</th>
+                <th className={th + ' text-center'}>OT Hrs</th>
+                <th className={th}>L1 Approver</th>
+                <th className={th}>L2 Approver</th>
+                <th className={th + ' text-right'}>Reg OT Pay</th>
+                <th className={th + ' text-right'}>Non-Reg OT Pay</th>
+                <th className={th + ' text-right'}>Holiday OT Pay</th>
+                <th className={th + ' text-right'}>Total OT Pay (AED)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="py-10 text-center text-sm text-content-muted">
+                    No records found.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((r) => {
+                  const pay = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
+                  return (
+                    <tr key={`${r.empId}-${r.date}`} className="hover:bg-surface-overlay/60">
+                      <td className={td + ' truncate font-mono'}>{r.empId}</td>
+                      <td className={td + ' truncate font-semibold'}>{r.name}</td>
+                      <td className={td}>{r.grade}</td>
+                      <td className={td + ' whitespace-nowrap'}>{r.date}</td>
+                      <td className={td + ' text-center font-semibold'}>{r.totalOTApproved}</td>
+                      <td className={td + ' truncate text-content-secondary'}>{r.l1ManagerName ?? '—'}</td>
+                      <td className={td + ' truncate text-content-secondary'}>{r.l2ManagerName ?? '—'}</td>
+                      <td className={td + ' text-right'}>{fmtAed(pay.regularOTPay)}</td>
+                      <td className={td + ' text-right'}>{fmtAed(pay.after9PMOTPay)}</td>
+                      <td className={td + ' text-right'}>{fmtAed(pay.holidayOTPay)}</td>
+                      <td className={td + ' text-right font-semibold text-green-700'}>{fmtAed(pay.totalOTPay)}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+
+            {/* Grand total footer */}
+            {filtered.length > 0 && (
+              <tfoot className="border-t-2 border-line bg-surface-overlay">
+                <tr>
+                  <td colSpan={10} className="px-1.5 py-2 text-right text-[10px] font-semibold text-content-secondary">
+                    Grand Total
+                  </td>
+                  <td className="px-1.5 py-2 text-right text-[11px] font-bold text-brand">
+                    AED {fmtAed(grandTotal)}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
-

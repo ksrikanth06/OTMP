@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { calcOtPay, fmtAed, MONTHS } from '@/services/dataService';
+import { calcOtPay, fmtAed, MONTHS, getHodIdForManager } from '@/services/dataService';
 import type { OTRecord } from '@/services/dataService';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import {
   mkOTKey,
-  managerApproveRecords, managerRejectRecords,
-  managerApproveSingle, managerRejectSingle, managerSaveOTHours,
+  l1ApproveRecords, l1RejectRecords,
+  l1ApproveSingle, l1RejectSingle, managerSaveOTHours,
+  l2ApproveRecords, l2RejectRecords,
 } from '@/store/slices/otSlice';
 import { Modal } from '@/components/common/Modal';
 
@@ -38,9 +39,11 @@ const computeTotal = (d: DetailDraft) =>
 
 export function OvertimeApprovalsPage() {
   const dispatch = useAppDispatch();
-  const allRecords  = useAppSelector((s) => s.ot.records);
-  const managerId   = useAppSelector((s) => s.auth.user?.id ?? '');
-  const managerName = useAppSelector((s) => s.auth.user?.displayName ?? 'Manager');
+  const allRecords   = useAppSelector((s) => s.ot.records);
+  const user         = useAppSelector((s) => s.auth.user);
+  const userId       = user?.id ?? '';
+  const userName     = user?.displayName ?? 'Manager';
+  const isL2         = user?.managerLevel === 'L2';
 
   const today = new Date();
   const todayYear  = today.getFullYear();
@@ -55,17 +58,36 @@ export function OvertimeApprovalsPage() {
   const [rejectDialog, setRejectDialog] = useState<{ mode: 'bulk' } | { mode: 'single'; draft: DetailDraft } | null>(null);
   const [rejectComment, setRejectComment] = useState('');
 
+  // L1: filter by managerId; L2: filter by hodId (derived from L1 manager's managerId)
   const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
-    return r.managerId === managerId && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+    const inPeriod = p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+    if (!inPeriod) return false;
+    if (isL2) return getHodIdForManager(r.managerId) === userId;
+    return r.managerId === userId;
   });
 
-  const pendingCount  = records.filter((r) => r.managerStatus === 'Pending').length;
-  const approvedCount = records.filter((r) => r.managerStatus === 'Approved').length;
+  // Tab counts
+  const pendingCount = isL2
+    ? records.filter((r) => r.l1Status === 'Approved' && r.l2Status === 'Pending').length
+    : records.filter((r) => r.l1Status === 'Pending').length;
+  const approvedCount = isL2
+    ? records.filter((r) => r.l2Status === 'Approved').length
+    : records.filter((r) => r.l1Status === 'Approved').length;
 
   const filteredRecords = records
-    .filter((r) => activeTab === 'pending' ? r.managerStatus === 'Pending' : r.managerStatus === 'Approved')
+    .filter((r) => {
+      if (activeTab === 'pending') {
+        return isL2
+          ? r.l1Status === 'Approved' && r.l2Status === 'Pending'
+          : r.l1Status === 'Pending';
+      }
+      return isL2 ? r.l2Status === 'Approved' : r.l1Status === 'Approved';
+    })
     .filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
+
+  const isPendingRecord = (r: OTRecord) =>
+    isL2 ? (r.l1Status === 'Approved' && r.l2Status === 'Pending') : r.l1Status === 'Pending';
 
   const years = Array.from({ length: 5 }, (_, i) => todayYear - i);
   const maxMonth = year === todayYear ? todayMonth : 12;
@@ -84,7 +106,6 @@ export function OvertimeApprovalsPage() {
 
   const maxOTHours = (r: OTRecord) => {
     const worked = workedHours(r);
-    // Holiday / off-day records: all hours count as OT, no shift deduction
     if (r.publicHolidayOT > 0 && r.regularDayOT === 0) return worked;
     return Math.round(Math.max(0, worked - 8) * 100) / 100;
   };
@@ -103,17 +124,28 @@ export function OvertimeApprovalsPage() {
     });
   };
 
-  const commitDraft = (newStatus?: 'Approved' | 'Rejected', comment?: string) => {
+  const commitL1Draft = (newStatus?: 'Approved' | 'Rejected', comment?: string) => {
     if (!detail) return;
     const { record, regularDayOT, regularDayOTAfter9PM, publicHolidayOT } = detail;
     const totalOTApproved = computeTotal(detail);
     const base = { empId: record.empId, date: record.date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved };
     if (newStatus === 'Approved') {
-      dispatch(managerApproveSingle({ ...base, managerName }));
+      dispatch(l1ApproveSingle({ ...base, l1ManagerName: userName }));
     } else if (newStatus === 'Rejected') {
-      dispatch(managerRejectSingle({ ...base, comment: comment ?? '' }));
+      dispatch(l1RejectSingle({ ...base, comment: comment ?? '' }));
     } else {
       dispatch(managerSaveOTHours(base));
+    }
+    setDetail(null);
+  };
+
+  const commitL2Single = (newStatus: 'Approved' | 'Rejected', comment?: string) => {
+    if (!detail) return;
+    const key = mkOTKey(detail.record.empId, detail.record.date);
+    if (newStatus === 'Approved') {
+      dispatch(l2ApproveRecords({ keys: [key], l2ManagerName: userName }));
+    } else {
+      dispatch(l2RejectRecords({ keys: [key], comment }));
     }
     setDetail(null);
   };
@@ -122,17 +154,25 @@ export function OvertimeApprovalsPage() {
     const trimmed = rejectComment.trim();
     if (!trimmed || !rejectDialog) return;
     if (rejectDialog.mode === 'bulk') {
-      dispatch(managerRejectRecords({ keys: [...selectedIds], comment: trimmed }));
+      if (isL2) {
+        dispatch(l2RejectRecords({ keys: [...selectedIds], comment: trimmed }));
+      } else {
+        dispatch(l1RejectRecords({ keys: [...selectedIds], comment: trimmed }));
+      }
       setSelectedIds(new Set());
     } else {
-      const { draft } = rejectDialog;
-      const totalOTApproved = computeTotal(draft);
-      dispatch(managerRejectSingle({
-        empId: draft.record.empId, date: draft.record.date,
-        regularDayOT: draft.regularDayOT, regularDayOTAfter9PM: draft.regularDayOTAfter9PM,
-        publicHolidayOT: draft.publicHolidayOT, totalOTApproved,
-        comment: trimmed,
-      }));
+      if (isL2) {
+        commitL2Single('Rejected', trimmed);
+      } else {
+        const { draft } = rejectDialog;
+        const totalOTApproved = computeTotal(draft);
+        dispatch(l1RejectSingle({
+          empId: draft.record.empId, date: draft.record.date,
+          regularDayOT: draft.regularDayOT, regularDayOTAfter9PM: draft.regularDayOTAfter9PM,
+          publicHolidayOT: draft.publicHolidayOT, totalOTApproved,
+          comment: trimmed,
+        }));
+      }
     }
     setRejectDialog(null);
     setRejectComment('');
@@ -158,6 +198,9 @@ export function OvertimeApprovalsPage() {
   const th = 'px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-content-muted whitespace-nowrap border-b border-r border-line';
   const td = 'px-3 py-3.5 text-sm text-content-primary whitespace-nowrap border-r border-line';
 
+  const pendingTabLabel  = isL2 ? 'Pending HoD Approval' : 'Pending Approvals';
+  const approvedTabLabel = isL2 ? 'HoD Approved' : 'Approved';
+
   return (
     <div className="space-y-6 animate-fade-up">
       {/* Page header */}
@@ -166,7 +209,9 @@ export function OvertimeApprovalsPage() {
           Overtime Approvals
         </h1>
         <p className="mt-1 text-sm text-content-secondary">
-          Review and approve overtime requests for your team.
+          {isL2
+            ? 'Review and approve L1-approved overtime requests for your department.'
+            : 'Review and approve overtime requests for your team.'}
         </p>
       </section>
 
@@ -189,7 +234,7 @@ export function OvertimeApprovalsPage() {
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl border border-line bg-surface-overlay p-1 w-fit">
         {(['pending', 'approved'] as const).map((tab) => {
-          const label = tab === 'pending' ? 'Pending Approvals' : 'Approved';
+          const label = tab === 'pending' ? pendingTabLabel : approvedTabLabel;
           const count = tab === 'pending' ? pendingCount : approvedCount;
           const active = activeTab === tab;
           return (
@@ -237,7 +282,11 @@ export function OvertimeApprovalsPage() {
             <button
               type="button"
               onClick={() => {
-                dispatch(managerApproveRecords({ keys: [...selectedIds], managerName }));
+                if (isL2) {
+                  dispatch(l2ApproveRecords({ keys: [...selectedIds], l2ManagerName: userName }));
+                } else {
+                  dispatch(l1ApproveRecords({ keys: [...selectedIds], l1ManagerName: userName }));
+                }
                 setSelectedIds(new Set());
               }}
               className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
@@ -278,26 +327,28 @@ export function OvertimeApprovalsPage() {
               <th className={th}>Date</th>
               <th className={th}>Grade</th>
               <th className={th}>Regular Day OT (Hrs)</th>
-              <th className={th}>Non-Reg Hrs OT (22:00–04:00) (Hrs)</th>
+              <th className={th}>Non-Reg Hrs OT (22:00–04:00)</th>
               <th className={th}>Public / Rest Holiday (Hrs)</th>
               <th className={th}>Total OT (Hrs)</th>
               <th className={th}>Time in Lieu (Hrs)</th>
               <th className={`${th} text-center`}>Pre-Approved</th>
-              <th className={th}>Status</th>
-              {activeTab === 'approved' && <th className={th}>HR Approval</th>}
+              <th className={th}>L1 Status</th>
+              {activeTab === 'approved' && !isL2 && <th className={th}>HoD Approval</th>}
+              {isL2 && activeTab === 'approved' && <th className={th}>L1 Approver</th>}
               <th className={th}>OT Pay (AED)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {filteredRecords.length === 0 ? (
               <tr>
-                <td colSpan={activeTab === 'approved' ? 14 : 13} className="py-12 text-center text-sm text-content-muted">
-                  No {activeTab} records for {MONTHS[month - 1]} {year}.
+                <td colSpan={14} className="py-12 text-center text-sm text-content-muted">
+                  No {activeTab === 'pending' ? pendingTabLabel.toLowerCase() : approvedTabLabel.toLowerCase()} records for {MONTHS[month - 1]} {year}.
                 </td>
               </tr>
             ) : (
               filteredRecords.map((r) => {
                 const key = mkOTKey(r.empId, r.date);
+                const isPending = isPendingRecord(r);
                 const { totalOTPay } = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
                 return (
                   <tr
@@ -308,10 +359,10 @@ export function OvertimeApprovalsPage() {
                     <td className={`${td} text-center`} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={r.managerStatus === 'Approved' ? true : selectedIds.has(key)}
-                        disabled={r.managerStatus === 'Approved'}
-                        onChange={() => r.managerStatus !== 'Approved' && toggleRow(key)}
-                        className={`h-4 w-4 accent-brand ${r.managerStatus === 'Approved' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                        checked={!isPending ? true : selectedIds.has(key)}
+                        disabled={!isPending}
+                        onChange={() => isPending && toggleRow(key)}
+                        className={`h-4 w-4 accent-brand ${!isPending ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                       />
                     </td>
                     <td className={`${td} font-mono text-xs text-content-secondary`}>{r.empId}</td>
@@ -333,24 +384,27 @@ export function OvertimeApprovalsPage() {
                     <td className={td}>
                       <span className={[
                         'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                        r.managerStatus === 'Approved' ? 'bg-success/15 text-success' :
-                        r.managerStatus === 'Rejected' ? 'bg-danger/15 text-danger' :
+                        r.l1Status === 'Approved' ? 'bg-success/15 text-success' :
+                        r.l1Status === 'Rejected' ? 'bg-danger/15 text-danger' :
                         'bg-warning/15 text-warning',
                       ].join(' ')}>
-                        {r.managerStatus}
+                        {r.l1Status}
                       </span>
                     </td>
-                    {activeTab === 'approved' && (
+                    {activeTab === 'approved' && !isL2 && (
                       <td className={td}>
                         <span className={[
                           'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                          r.hrStatus === 'Approved' ? 'bg-success/15 text-success' :
-                          r.hrStatus === 'Rejected' ? 'bg-danger/15 text-danger' :
+                          r.l2Status === 'Approved' ? 'bg-success/15 text-success' :
+                          r.l2Status === 'Rejected' ? 'bg-danger/15 text-danger' :
                           'bg-warning/15 text-warning',
                         ].join(' ')}>
-                          {r.hrStatus ?? 'Pending'}
+                          {r.l2Status ?? 'Pending'}
                         </span>
                       </td>
+                    )}
+                    {isL2 && activeTab === 'approved' && (
+                      <td className={`${td} text-content-secondary`}>{r.l1ManagerName ?? '—'}</td>
                     )}
                     <td className={`${td} font-semibold`}>AED {fmtAed(totalOTPay)}</td>
                   </tr>
@@ -364,8 +418,9 @@ export function OvertimeApprovalsPage() {
       {/* Detail popup */}
       {detail && (() => {
         const r = detail.record;
-        const isRejected = r.managerStatus === 'Rejected';
-        const isPending  = r.managerStatus === 'Pending';
+        const isPending = isPendingRecord(r);
+        const isRejected = isL2 ? r.l2Status === 'Rejected' : r.l1Status === 'Rejected';
+        const rejectionComment = isL2 ? r.l2RejectionComment : r.l1RejectionComment;
         const { hhmm, decimal: workedDec } = formatWorked(r);
         const otMax   = maxOTHours(r);
         const totalOT = computeTotal(detail);
@@ -380,6 +435,11 @@ export function OvertimeApprovalsPage() {
           ['Non-Reg Hrs OT (22:00–04:00)', fmtAed(after9PMOTPay), `${detail.regularDayOTAfter9PM} hr${detail.regularDayOTAfter9PM !== 1 ? 's' : ''} × 1.5`],
           ['Public / Rest Holiday OT', fmtAed(holidayOTPay), `${detail.publicHolidayOT} hrs × Gross Rate + ${detail.publicHolidayOT} hrs × 0.5 × Basic Rate`],
         ];
+
+        const statusBadge = isL2
+          ? (r.l2Status === 'Approved' ? 'bg-success/15 text-success' : r.l2Status === 'Rejected' ? 'bg-danger/15 text-danger' : 'bg-warning/15 text-warning')
+          : (r.l1Status === 'Approved' ? 'bg-success/15 text-success' : r.l1Status === 'Rejected' ? 'bg-danger/15 text-danger' : 'bg-warning/15 text-warning');
+        const statusLabel = isL2 ? (r.l2Status ?? 'Pending') : r.l1Status;
 
         return (
           <Modal onClose={() => setDetail(null)}>
@@ -400,14 +460,7 @@ export function OvertimeApprovalsPage() {
                   </div>
                   <div className="mt-1 flex items-center gap-1.5">
                     <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">Grade {r.grade}</span>
-                    <span className={[
-                      'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                      r.managerStatus === 'Approved' ? 'bg-success/15 text-success' :
-                      r.managerStatus === 'Rejected' ? 'bg-danger/15 text-danger' :
-                      'bg-warning/15 text-warning',
-                    ].join(' ')}>
-                      {r.managerStatus}
-                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge}`}>{statusLabel}</span>
                     {r.preApproved && (
                       <span className="rounded-full bg-surface-overlay border border-line px-2 py-0.5 text-[10px] font-medium text-content-secondary">Pre-Approved</span>
                     )}
@@ -439,20 +492,28 @@ export function OvertimeApprovalsPage() {
                     <span className="text-content-muted">({hhmm})</span>
                   </div>
 
+                  {/* L1 approver info for L2 view */}
+                  {isL2 && r.l1ManagerName && (
+                    <div className="flex items-center gap-2 rounded-lg bg-surface-overlay px-3 py-2 text-xs">
+                      <span className="text-content-muted">L1 Approved by</span>
+                      <span className="font-semibold text-content-primary">{r.l1ManagerName}</span>
+                    </div>
+                  )}
+
                   {/* Rejection reason */}
-                  {isRejected && r.managerRejectionComment && (
+                  {isRejected && rejectionComment && (
                     <div className="flex gap-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 text-danger mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
-                      <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {r.managerRejectionComment}</p>
+                      <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {rejectionComment}</p>
                     </div>
                   )}
 
                   {/* OT Hours */}
                   <div>
                     <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">
-                      OT Hours {isPending && `· max ${otMax} hrs (${workedDec} worked${r.publicHolidayOT > 0 && r.regularDayOT === 0 ? '' : ' − 8h shift'})`}
+                      OT Hours {isPending && !isL2 && `· max ${otMax} hrs (${workedDec} worked${r.publicHolidayOT > 0 && r.regularDayOT === 0 ? '' : ' − 8h shift'})`}
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       {([
@@ -462,7 +523,7 @@ export function OvertimeApprovalsPage() {
                       ] as [string, 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', number][]).map(([label, field, val]) => (
                         <div key={field}>
                           <label className="block text-[10px] font-medium text-content-secondary mb-1">{label} (Hrs)</label>
-                          {isPending ? (
+                          {isPending && !isL2 ? (
                             <input
                               type="number"
                               min={0}
@@ -489,7 +550,7 @@ export function OvertimeApprovalsPage() {
                   </div>
 
                   {/* Pay breakdown */}
-                  <div>
+                  <div className="hidden">
                     <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">OT Pay Calculation</p>
                     <div className="divide-y divide-line rounded-lg border border-line bg-surface-overlay">
                       {payRows.map(([label, amount, note]) => (
@@ -518,23 +579,30 @@ export function OvertimeApprovalsPage() {
                 </button>
                 {isPending && (
                   <>
+                    {!isL2 && (
+                      <button
+                        type="button"
+                        onClick={() => commitL1Draft()}
+                        className="rounded-lg border border-brand px-4 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand/10"
+                      >
+                        Save
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => commitDraft()}
-                      className="rounded-lg border border-brand px-4 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand/10"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { const d = detail!; setDetail(null); setRejectDialog({ mode: 'single', draft: d }); setRejectComment(''); }}
+                      onClick={() => {
+                        const d = detail!;
+                        setDetail(null);
+                        setRejectDialog({ mode: 'single', draft: d });
+                        setRejectComment('');
+                      }}
                       className="rounded-lg border border-danger px-4 py-1.5 text-xs font-semibold text-danger transition hover:bg-danger/10"
                     >
                       Reject
                     </button>
                     <button
                       type="button"
-                      onClick={() => commitDraft('Approved')}
+                      onClick={() => isL2 ? commitL2Single('Approved') : commitL1Draft('Approved')}
                       className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
                     >
                       Approve

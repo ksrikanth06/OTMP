@@ -11,15 +11,25 @@ export function HomePage() {
 
   // Quick-access cards mirror the sidebar but skip the Dashboard self-link.
   const cards = getNavForRole(user.role).filter((item) => item.path !== '/home');
+  const displayRole = user.managerLevel === 'L2'
+    ? 'Head of Department'
+    : user.managerLevel === 'L1'
+      ? 'Line Manager'
+      : roleLabels[user.role];
+  const displayDescription = user.managerLevel === 'L2'
+    ? 'Head of Department (L2) — review and approve team requests'
+    : user.managerLevel === 'L1'
+      ? 'Line Manager (L1) — review and approve team requests'
+      : roleDescriptions[user.role];
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <section className="animate-fade-up">
-        <p className="text-sm font-medium text-brand">{roleLabels[user.role]}</p>
+        <p className="text-sm font-medium text-brand">{displayRole}</p>
         <h1 className="mt-1 font-display text-2xl font-semibold text-content-primary sm:text-3xl">
           {appText.home.welcomePrefix} {user.displayName.split(' ')[0]}
         </h1>
-        <p className="mt-1 text-sm text-content-secondary">{roleDescriptions[user.role]}</p>
+        <p className="mt-1 text-sm text-content-secondary">{displayDescription}</p>
       </section>
 
       <section>

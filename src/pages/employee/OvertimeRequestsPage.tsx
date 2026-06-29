@@ -174,10 +174,10 @@ export function OvertimeRequestsPage() {
   };
 
   const effectiveStatus = (r: OTRecord): string => {
-    if (r.managerStatus === 'Rejected') return 'Rejected';
-    if (r.managerStatus === 'Pending')  return 'Pending';
-    if (r.hrStatus === 'Approved')      return 'Approved';
-    if (r.hrStatus === 'Rejected')      return 'Rejected';
+    if (r.l1Status === 'Rejected') return 'Rejected';
+    if (r.l1Status === 'Pending')  return 'Pending';
+    if (r.l2Status === 'Approved') return 'Approved';
+    if (r.l2Status === 'Rejected') return 'Rejected';
     return 'Pending';
   };
 
@@ -365,8 +365,8 @@ export function OvertimeRequestsPage() {
                   <th className={th}>Non-Reg Hrs OT (Hrs)</th>
                   <th className={th}>Holiday OT (Hrs)</th>
                   <th className={th}>Total OT (Hrs)</th>
-                  <th className={th}>Manager Approval</th>
-                  <th className={`${th} border-r-0`}>HR Approval</th>
+                  <th className={th}>L1 Approval</th>
+                  <th className={`${th} border-r-0`}>HoD Approval</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -381,11 +381,11 @@ export function OvertimeRequestsPage() {
                     <td className={`${td} text-center`}>{r.regularDayOTAfter9PM}</td>
                     <td className={`${td} text-center`}>{r.publicHolidayOT}</td>
                     <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
-                    <td className={td}>{statusChip(r.managerStatus)}</td>
+                    <td className={td}>{statusChip(r.l1Status)}</td>
                     <td className={`${td} border-r-0`}>
-                      {r.managerStatus !== 'Approved'
+                      {r.l1Status !== 'Approved'
                         ? <span className="text-content-muted">—</span>
-                        : statusChip(r.hrStatus ?? 'Pending')}
+                        : statusChip(r.l2Status ?? 'Pending')}
                     </td>
                   </tr>
                 ))}
@@ -426,19 +426,19 @@ export function OvertimeRequestsPage() {
               </button>
             </div>
             {(() => {
-              const managerState: StepState =
-                detail.managerStatus === 'Approved' ? 'done'
-                : detail.managerStatus === 'Rejected' ? 'rejected'
+              const l1State: StepState =
+                detail.l1Status === 'Approved' ? 'done'
+                : detail.l1Status === 'Rejected' ? 'rejected'
                 : 'pending';
 
-              const hrState: StepState =
-                managerState !== 'done' ? 'waiting'
-                : detail.hrStatus === 'Approved' ? 'done'
-                : detail.hrStatus === 'Rejected' ? 'rejected'
+              const l2State: StepState =
+                l1State !== 'done' ? 'waiting'
+                : detail.l2Status === 'Approved' ? 'done'
+                : detail.l2Status === 'Rejected' ? 'rejected'
                 : 'pending';
 
-              const managerName = detail.managerName
-                ? `Reviewed by ${detail.managerName}`
+              const l1ReviewedBy = detail.l1ManagerName
+                ? `Reviewed by ${detail.l1ManagerName}`
                 : undefined;
 
               return (
@@ -453,14 +453,14 @@ export function OvertimeRequestsPage() {
                         name={`Submitted on ${detail.date}`}
                       />
                       <ApprovalStep
-                        role="Line Manager"
-                        state={managerState}
-                        name={managerState === 'done' ? managerName : undefined}
-                        comment={managerState === 'rejected' ? detail.managerRejectionComment : undefined}
+                        role="Line Manager (L1)"
+                        state={l1State}
+                        name={l1State === 'done' ? l1ReviewedBy : undefined}
+                        comment={l1State === 'rejected' ? detail.l1RejectionComment : undefined}
                       />
                       <ApprovalStep
-                        role="HR"
-                        state={hrState}
+                        role="Head of Department (L2)"
+                        state={l2State}
                         isLast
                       />
                     </div>
@@ -543,7 +543,7 @@ export function OvertimeRequestsPage() {
                   {[
                     ['Date', form.date],
                     ['Regular Day OT', `${reg} hrs`],
-                    ['Non-Reg Hrs OT (22:00–04:00)', `${late} hrs`],
+                    ['Non-Reg Hrs OT (22:00–04:00)'],
                     ['Public / Holiday OT', `${hol} hrs`],
                     ['Total OT', `${totalOT} hrs`],
                     ...(form.notes ? [['Notes', form.notes] as [string, string]] : []),

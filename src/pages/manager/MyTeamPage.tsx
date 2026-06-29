@@ -7,6 +7,7 @@ export function MyTeamPage() {
   const navigate = useNavigate();
   const user     = useAppSelector((state) => state.auth.user);
   const team     = user ? getDirectReports(user.id) : [];
+  const isL2     = user?.managerLevel === 'L2';
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 animate-fade-up">
@@ -29,7 +30,7 @@ export function MyTeamPage() {
             <button
               key={member.id}
               type="button"
-              onClick={() => navigate(`/home/team/${member.id}/shift-plan`)}
+              onClick={() => navigate(isL2 ? `/home/team/${member.id}/members` : `/home/team/${member.id}/shift-plan`)}
               className="flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-surface-overlay"
             >
               <Avatar name={member.displayName} size={44} />

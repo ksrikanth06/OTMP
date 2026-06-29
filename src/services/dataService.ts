@@ -12,6 +12,7 @@
  *    or convert to Redux Thunks.
  */
 
+import { UserRole } from '@/types';
 import type { AuthenticatedUser, LoginCredentials } from '@/types';
 import {
   DIRECTORY,
@@ -20,9 +21,11 @@ import {
   SHIFT_STARTS,
   JUNE_2026_SHIFT_PLAN,
   JUNE_2026_EMP_SHIFTS,
+  JULY_2026_SHIFT_PLAN,
+  JULY_2026_EMP_SHIFTS,
 } from './mockData';
 
-export type { HrStatus, ManagerStatus, OTRecord } from './mockData';
+export type { ApprovalStatus, HrStatus, ManagerStatus, OTRecord } from './mockData';
 export { HR_ENTITIES, HR_DEPARTMENTS } from './mockData';
 
 export interface AttendanceRecord {
@@ -70,6 +73,11 @@ export function getInitialShiftPlan() {
   return {} as typeof JUNE_2026_SHIFT_PLAN;
 }
 
+export function getInitialJulyShiftPlan() {
+  if (USE_MOCK) return JULY_2026_SHIFT_PLAN;
+  return {} as typeof JULY_2026_SHIFT_PLAN;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface OtBreakdown {
@@ -114,7 +122,7 @@ export function getDirectReports(managerId: string): AuthenticatedUser[] {
   return [];
 }
 
-export const demoAccounts = DIRECTORY.filter((r) => !r.managerId).map(({ username, role }) => ({
+export const demoAccounts = DIRECTORY.filter((r) => r.role !== UserRole.Employee).map(({ username, role }) => ({
   username,
   role,
 }));
@@ -130,9 +138,14 @@ export function getManagerOvertimeRecords(managerId: string, _year: number, _mon
 // ─── HR overtime records ──────────────────────────────────────────────────────
 
 export function getHrOvertimeRecords(_year: number, _month: number) {
-  if (USE_MOCK) return OT_RECORDS.filter((r) => r.managerStatus === 'Approved');
+  if (USE_MOCK) return OT_RECORDS.filter((r) => r.l1Status === 'Approved' && r.l2Status === 'Approved');
   // TODO: API — return await get(`/overtime/hr?year=${_year}&month=${_month}`);
   return [];
+}
+
+/** Returns the L2 HoD's employee ID for a given L1 manager ID. */
+export function getHodIdForManager(managerId: string): string {
+  return DIRECTORY.find((d) => d.id === managerId)?.managerId ?? '';
 }
 
 // ─── Pay calculation (pure — no mock/API switch needed) ───────────────────────
@@ -201,14 +214,21 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
   const empId      = userId;
   const monthShort = MONTHS_SHORT[month - 1];
 
-  // ── June 2026: use explicit shift plan ──────────────────────────────────────
-  if (year === 2026 && month === 6) {
-    const plan = JUNE_2026_SHIFT_PLAN[empId] ?? [];
-    return plan.map((rec) => {
-      const dateStr = `${String(rec.day).padStart(2, '0')} Jun 2026`;
+  // ── Explicit monthly shift plans ─────────────────────────────────────────────
+  const monthlyPlan =
+    (year === 2026 && month === 6) ? JUNE_2026_SHIFT_PLAN[empId] :
+    (year === 2026 && month === 7) ? JULY_2026_SHIFT_PLAN[empId] :
+    undefined;
+  const monthLabel =
+    (year === 2026 && month === 6) ? 'Jun 2026' :
+    (year === 2026 && month === 7) ? 'Jul 2026' :
+    undefined;
+
+  if (monthlyPlan && monthLabel) {
+    return monthlyPlan.map((rec) => {
+      const dateStr = `${String(rec.day).padStart(2, '0')} ${monthLabel}`;
       if (!rec.isWorkday) {
         if (rec.clockIn && rec.clockOut) {
-          // Worked on a week-off day — publicHolidayOT rate applies
           return {
             date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Weekend' as const,
             clockIn: rec.clockIn, clockOut: rec.clockOut,
@@ -220,7 +240,6 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
         return { date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Weekend' as const };
       }
       if (rec.isPublicHoliday) {
-        // Public holiday — any hours worked count as publicHolidayOT
         return {
           date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, status: 'Holiday' as const,
           clockIn:    rec.clockIn,
@@ -276,7 +295,7 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
     const ot = otByDay.get(day);
     if (ot) {
       // OT record already has real clock-in/out derived from actual attendance
-      results.push({ date: dateStr, day, dayOfWeek: dayName, status: 'Present', clockIn: ot.clockIn, clockOut: ot.clockOut, totalHours: calcHours(ot.clockIn, ot.clockOut), hasOT: true, otStatus: ot.managerStatus });
+      results.push({ date: dateStr, day, dayOfWeek: dayName, status: 'Present', clockIn: ot.clockIn, clockOut: ot.clockOut, totalHours: calcHours(ot.clockIn, ot.clockOut), hasOT: true, otStatus: ot.l1Status });
       continue;
     }
     const clockOut = offsetTime(empShift.end, outOffset);
@@ -326,21 +345,29 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
 
   const empId = userId;
 
-  // ── June 2026: use explicit shift plan ──────────────────────────────────────
-  if (year === 2026 && month === 6) {
-    const plan = JUNE_2026_SHIFT_PLAN[empId] ?? [];
-    return plan.map((rec) => {
-      const dateStr = `${String(rec.day).padStart(2, '0')} Jun 2026`;
+  // ── Explicit monthly shift plans ─────────────────────────────────────────────
+  const monthlyPlanShift =
+    (year === 2026 && month === 6) ? JUNE_2026_SHIFT_PLAN[empId] :
+    (year === 2026 && month === 7) ? JULY_2026_SHIFT_PLAN[empId] :
+    undefined;
+  const monthLabelShift =
+    (year === 2026 && month === 6) ? 'Jun 2026' :
+    (year === 2026 && month === 7) ? 'Jul 2026' :
+    undefined;
+
+  if (monthlyPlanShift && monthLabelShift) {
+    return monthlyPlanShift.map((rec) => {
+      const dateStr = `${String(rec.day).padStart(2, '0')} ${monthLabelShift}`;
       if (!rec.isWorkday) return { date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, isWorkday: false };
       return {
         date: dateStr, day: rec.day, dayOfWeek: rec.dayOfWeek, isWorkday: true,
-        shiftStart:        rec.shiftStart,
-        shiftEnd:          rec.shiftEnd,
-        shiftDurationHrs:  8,
-        otHours:           rec.otHours,
-        otStatus:          rec.otStatus,
-        otStartTime:       rec.otStart,
-        otEndTime:         rec.otEnd,
+        shiftStart:         rec.shiftStart,
+        shiftEnd:           rec.shiftEnd,
+        shiftDurationHrs:   8,
+        otHours:            rec.otHours,
+        otStatus:           rec.otStatus,
+        otStartTime:        rec.otStart,
+        otEndTime:          rec.otEnd,
         totalExpectedHours: 8 + (rec.otHours ?? 0),
       };
     });
@@ -383,7 +410,7 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
     results.push({
       date: dateStr, day, dayOfWeek: dayName, isWorkday: true,
       shiftStart, shiftEnd, shiftDurationHrs: 8,
-      otHours, otStatus: ot?.managerStatus, otStartTime, otEndTime,
+      otHours, otStatus: ot?.l1Status, otStartTime, otEndTime,
       totalExpectedHours: 8 + (otHours ?? 0),
     });
   }
@@ -394,8 +421,9 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
 // Return the fixed shift for an employee by their empId for a given month/year.
 // Falls back to index-based SHIFT_STARTS for months without explicit data.
 export function getEmployeeShiftById(empId: string, year: number, month: number): ShiftInfo {
-  if (USE_MOCK && year === 2026 && month === 6) {
-    const s = JUNE_2026_EMP_SHIFTS[empId];
+  if (USE_MOCK && year === 2026) {
+    const shifts = month === 6 ? JUNE_2026_EMP_SHIFTS : month === 7 ? JULY_2026_EMP_SHIFTS : null;
+    const s = shifts?.[empId];
     if (s) return { startTime: s.start, endTime: s.end };
   }
   return { startTime: '08:00', endTime: '16:00' };
@@ -408,13 +436,19 @@ export function getTeamMonthOTStore(
   year: number,
   month: number,
 ): Record<string, { otStart: string; otEnd: string; comments: string }> {
-  if (!USE_MOCK || !(year === 2026 && month === 6)) return {};
+  if (!USE_MOCK) return {};
+
+  const shiftPlan =
+    (year === 2026 && month === 6) ? JUNE_2026_SHIFT_PLAN :
+    (year === 2026 && month === 7) ? JULY_2026_SHIFT_PLAN :
+    null;
+  if (!shiftPlan) return {};
 
   const team  = getDirectReports(managerId);
   const store: Record<string, { otStart: string; otEnd: string; comments: string }> = {};
 
   for (const emp of team) {
-    const plan = JUNE_2026_SHIFT_PLAN[emp.id] ?? [];
+    const plan = shiftPlan[emp.id] ?? [];
     for (const rec of plan) {
       if (rec.isWorkday && rec.otStart && rec.otEnd) {
         store[`${emp.id}-${rec.day}`] = { otStart: rec.otStart, otEnd: rec.otEnd, comments: '' };

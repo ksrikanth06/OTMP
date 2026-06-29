@@ -35,17 +35,24 @@ export function MyRequestsPage() {
     setActiveTab('all');
   };
 
+  const effectiveStatus = (r: OTRecord): string => {
+    if (r.l1Status === 'Rejected') return 'Rejected';
+    if (r.l2Status === 'Rejected') return 'Rejected';
+    if (r.l1Status === 'Approved' && r.l2Status === 'Approved') return 'Approved';
+    return 'Pending';
+  };
+
   const counts = records
     ? {
         all:      records.length,
-        pending:  records.filter((r) => r.managerStatus === 'Pending').length,
-        approved: records.filter((r) => r.managerStatus === 'Approved').length,
-        rejected: records.filter((r) => r.managerStatus === 'Rejected').length,
+        pending:  records.filter((r) => effectiveStatus(r) === 'Pending').length,
+        approved: records.filter((r) => effectiveStatus(r) === 'Approved').length,
+        rejected: records.filter((r) => effectiveStatus(r) === 'Rejected').length,
       }
     : null;
 
   const filtered = records
-    ? activeTab === 'all' ? records : records.filter((r) => r.managerStatus.toLowerCase() === activeTab)
+    ? activeTab === 'all' ? records : records.filter((r) => effectiveStatus(r).toLowerCase() === activeTab)
     : null;
 
   const selectClass =
@@ -169,7 +176,7 @@ export function MyRequestsPage() {
                     <td className={`${td} text-center`}>{r.regularDayOTAfter9PM}</td>
                     <td className={`${td} text-center`}>{r.publicHolidayOT}</td>
                     <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
-                    <td className={`${td} border-r-0`}>{statusChip(r.managerStatus)}</td>
+                    <td className={`${td} border-r-0`}>{statusChip(effectiveStatus(r))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -191,7 +198,7 @@ export function MyRequestsPage() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-display text-sm font-semibold text-content-primary">{detail.date}</h3>
-                  {statusChip(detail.managerStatus)}
+                  {statusChip(effectiveStatus(detail))}
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-xs text-content-muted">
                   <span>In: <span className="font-mono font-semibold text-success">{detail.clockIn}</span></span>
@@ -211,9 +218,14 @@ export function MyRequestsPage() {
             </div>
 
             <div className="space-y-3 px-5 py-4">
-              {detail.managerStatus === 'Rejected' && detail.managerRejectionComment && (
+              {detail.l1Status === 'Rejected' && detail.l1RejectionComment && (
                 <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
-                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejection reason:</span> {detail.managerRejectionComment}</p>
+                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejected by Line Manager:</span> {detail.l1RejectionComment}</p>
+                </div>
+              )}
+              {detail.l2Status === 'Rejected' && detail.l2RejectionComment && (
+                <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
+                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejected by Head of Department:</span> {detail.l2RejectionComment}</p>
                 </div>
               )}
 

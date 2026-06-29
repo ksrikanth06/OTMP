@@ -26,7 +26,7 @@ const managerNav: NavItem[] = [
 ];
 
 const hrNav: NavItem[] = [
-  { key: 'hr-approvals', label: 'Overtime Approvals',       path: '/home/hr-approvals', icon: 'check'  },
+  { key: 'hr-approvals', label: 'Approved Overtime Records',    path: '/home/hr-approvals', icon: 'check'  },
   { key: 'hr-payroll',   label: 'Export Overtime Payroll Data', path: '/home/hr-payroll',   icon: 'wallet' },
 ];
 

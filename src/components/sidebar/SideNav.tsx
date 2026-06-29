@@ -16,6 +16,17 @@ export function SideNav({ open, onNavigate }: SideNavProps) {
   if (!user) return null;
 
   const items = getNavForRole(user.role);
+  const isL2 = user.managerLevel === 'L2';
+  const displayRole = user.managerLevel === 'L2'
+    ? 'Head of Department'
+    : user.managerLevel === 'L1'
+      ? 'Line Manager'
+      : roleLabels[user.role];
+  const displayDescription = user.managerLevel === 'L2'
+    ? 'Head of Department (L2) — review and approve team requests'
+    : user.managerLevel === 'L1'
+      ? 'Line Manager (L1) — review and approve team requests'
+      : roleDescriptions[user.role];
 
   const linkClasses = ({ isActive }: { isActive: boolean }) =>
     [
@@ -48,9 +59,9 @@ export function SideNav({ open, onNavigate }: SideNavProps) {
             {appText.common.role}
           </p>
           <p className="mt-1 text-sm font-semibold text-content-primary">
-            {roleLabels[user.role]}
+            {displayRole}
           </p>
-          <p className="text-xs text-content-muted">{roleDescriptions[user.role]}</p>
+          <p className="text-xs text-content-muted">{displayDescription}</p>
         </div>
 
         <nav className="scrollbar-slim flex-1 overflow-y-auto px-3 py-4">
@@ -86,7 +97,7 @@ export function SideNav({ open, onNavigate }: SideNavProps) {
                 {/* Sub-items */}
                 {item.children && item.children.length > 0 && (
                   <ul className="ml-11 mt-1 space-y-1 border-l border-line pl-3">
-                    {item.children.map((child) => (
+                    {item.children.filter((child) => !(isL2 && child.key === 'mgr-shift-plan')).map((child) => (
                       <li key={child.key}>
                         <NavLink
                           to={child.path}

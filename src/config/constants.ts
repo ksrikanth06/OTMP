@@ -59,6 +59,6 @@ export const roleLabels: Record<UserRole, string> = {
 /** Short descriptions shown next to each role on the login selector. */
 export const roleDescriptions: Record<UserRole, string> = {
   [UserRole.Employee]: 'Submit and track your overtime',
-  [UserRole.Manager]: 'Review and approve team requests',
-  [UserRole.Hr]: 'Oversee policy, reporting and payroll',
+  [UserRole.Manager]: 'Line Manager (L1) or Head of Department (L2) — review and approve team requests',
+  [UserRole.Hr]: 'View fully-approved records and export payroll',
 };
