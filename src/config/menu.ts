@@ -21,6 +21,7 @@ const managerNav: NavItem[] = [
     key: 'mgr-team', label: 'My Team', path: '/home/team', icon: 'users',
     children: [
       { key: 'mgr-shift-plan', label: 'View Shift Plan', path: '/home/team/shift-plan', icon: 'calendar' },
+      { key: 'mgr-emp-attendance', label: 'Employee Attendance', path: '/home/team/employee-attendance', icon: 'clock' },
     ],
   },
 ];

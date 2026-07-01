@@ -97,7 +97,7 @@ export function SideNav({ open, onNavigate }: SideNavProps) {
                 {/* Sub-items */}
                 {item.children && item.children.length > 0 && (
                   <ul className="ml-11 mt-1 space-y-1 border-l border-line pl-3">
-                    {item.children.filter((child) => !(isL2 && child.key === 'mgr-shift-plan')).map((child) => (
+                    {item.children.filter((child) => !(isL2 && (child.key === 'mgr-shift-plan' || child.key === 'mgr-emp-attendance'))).map((child) => (
                       <li key={child.key}>
                         <NavLink
                           to={child.path}

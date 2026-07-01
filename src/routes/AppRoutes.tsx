@@ -5,6 +5,7 @@ import { OvertimeApprovalsPage } from '@/pages/manager/OvertimeApprovalsPage';
 import { MyTeamPage } from '@/pages/manager/MyTeamPage';
 import { ShiftPlanPage } from '@/pages/manager/ShiftPlanPage';
 import { EmployeeShiftPlanPage } from '@/pages/manager/EmployeeShiftPlanPage';
+import { EmployeeAttendancePage } from '@/pages/manager/EmployeeAttendancePage';
 import { TeamMembersPage } from '@/pages/manager/TeamMembersPage';
 import { HrApprovalsPage } from '@/pages/hr/HrApprovalsPage';
 import { HrPayrollPage } from '@/pages/hr/HrPayrollPage';
@@ -32,6 +33,7 @@ export function AppRoutes() {
           <Route path="team/:empId/shift-plan" element={<EmployeeShiftPlanPage />} />
           <Route path="team/:managerId/members" element={<TeamMembersPage />} />
           <Route path="team/shift-plan" element={<ShiftPlanPage />} />
+          <Route path="team/employee-attendance" element={<EmployeeAttendancePage />} />
           {/* HR */}
           <Route path="hr-approvals" element={<HrApprovalsPage />} />
           <Route path="hr-payroll" element={<HrPayrollPage />} />
