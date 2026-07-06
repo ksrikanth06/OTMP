@@ -25,7 +25,7 @@ import {
   JULY_2026_EMP_SHIFTS,
 } from './mockData';
 
-export type { ApprovalStatus, HrStatus, ManagerStatus, OTRecord } from './mockData';
+export type { ApprovalStatus, HrStatus, ManagerStatus, OTHours, OTRecord } from './mockData';
 export { HR_ENTITIES, HR_DEPARTMENTS } from './mockData';
 
 export interface AttendanceRecord {
@@ -127,6 +127,14 @@ export const demoAccounts = DIRECTORY.filter((r) => r.role !== UserRole.Employee
   role,
 }));
 
+export function getEmployeeManagerId(empId: string): string {
+  return DIRECTORY.find((d) => d.id === empId)?.managerId ?? '';
+}
+
+export function getEmployeeGrade(empId: string): string {
+  return OT_RECORDS.find((r) => r.empId === empId)?.grade ?? 'G5';
+}
+
 // ─── Manager overtime records ─────────────────────────────────────────────────
 
 export function getManagerOvertimeRecords(managerId: string, _year: number, _month: number) {
@@ -138,7 +146,7 @@ export function getManagerOvertimeRecords(managerId: string, _year: number, _mon
 // ─── HR overtime records ──────────────────────────────────────────────────────
 
 export function getHrOvertimeRecords(_year: number, _month: number) {
-  if (USE_MOCK) return OT_RECORDS.filter((r) => r.l1Status === 'Approved' && r.l2Status === 'Approved');
+  if (USE_MOCK) return OT_RECORDS.filter((r) => r.l1_approval_status === 'Approved' && r.l2_approval_status === 'Approved');
   // TODO: API — return await get(`/overtime/hr?year=${_year}&month=${_month}`);
   return [];
 }
@@ -295,7 +303,7 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
     const ot = otByDay.get(day);
     if (ot) {
       // OT record already has real clock-in/out derived from actual attendance
-      results.push({ date: dateStr, day, dayOfWeek: dayName, status: 'Present', clockIn: ot.clockIn, clockOut: ot.clockOut, totalHours: calcHours(ot.clockIn, ot.clockOut), hasOT: true, otStatus: ot.l1Status });
+      results.push({ date: dateStr, day, dayOfWeek: dayName, status: 'Present', clockIn: ot.clockIn, clockOut: ot.clockOut, totalHours: calcHours(ot.clockIn, ot.clockOut), hasOT: true, otStatus: ot.l1_approval_status });
       continue;
     }
     const clockOut = offsetTime(empShift.end, outOffset);
@@ -401,7 +409,7 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
     const shiftStart      = SHIFT_POOL[(empNum * 7 + day * 3) % SHIFT_POOL.length];
     const shiftEnd        = addHrsToTime(shiftStart, 8);
     const ot              = otByDay.get(day);
-    const otHours         = ot?.totalOTApproved;
+    const otHours         = ot ? (ot.l1_approved_hours?.total ?? ot.employee_submitted_hours.total) : undefined;
     const GAP_OPTIONS     = [0, 0, 30, 60];
     const gapMins         = ot ? GAP_OPTIONS[(day * 7 + empNum * 3) % GAP_OPTIONS.length] : 0;
     const otStartTime     = otHours !== undefined ? addHrsToTime(shiftEnd, gapMins / 60) : undefined;
@@ -410,7 +418,7 @@ export function getShiftDetails(userId: string, year: number, month: number): Sh
     results.push({
       date: dateStr, day, dayOfWeek: dayName, isWorkday: true,
       shiftStart, shiftEnd, shiftDurationHrs: 8,
-      otHours, otStatus: ot?.l1Status, otStartTime, otEndTime,
+      otHours, otStatus: ot?.l1_approval_status, otStartTime, otEndTime,
       totalExpectedHours: 8 + (otHours ?? 0),
     });
   }

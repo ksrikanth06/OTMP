@@ -168,6 +168,13 @@ export type ManagerStatus = ApprovalStatus;
 /** @deprecated Use ApprovalStatus */
 export type HrStatus = ApprovalStatus;
 
+export interface OTHours {
+  regularDayOT: number;
+  regularDayOTAfter9PM: number;
+  publicHolidayOT: number;
+  total: number;
+}
+
 export interface OTRecord {
   empId: string;
   /** L1 Line Manager's employee ID */
@@ -179,20 +186,59 @@ export interface OTRecord {
   date: string;
   clockIn: string;
   clockOut: string;
-  regularDayOT: number;
-  regularDayOTAfter9PM: number;
-  publicHolidayOT: number;
-  totalOTApproved: number;
-  timeInLieu: number;
   preApproved: boolean;
-  /** L1 Line Manager approval status */
-  l1Status: ApprovalStatus;
+
+  /** Always 'Submitted' — records only exist once the employee has submitted */
+  employee_submit_status: 'Submitted';
+  employee_submitted_hours: OTHours;
+
+  l1_approval_status: ApprovalStatus;
+  l1_approved_hours: OTHours | null;
+  l1_comments: string;
   l1ManagerName?: string;
-  l1RejectionComment?: string;
-  /** L2 Head of Department approval status. null = awaiting L1 approval first. */
-  l2Status: ApprovalStatus | null;
+
+  l2_approval_status: ApprovalStatus | null;
+  l2_comments: string;
   l2ManagerName?: string;
-  l2RejectionComment?: string;
+
+  /** Reason the employee provided when submitting */
+  reason: string;
+}
+
+// ─── Raw mock data → OTRecord migration ──────────────────────────────────────
+
+interface _RawOT {
+  empId: string; managerId: string; name: string; grade: string;
+  entity: string; department: string; date: string; clockIn: string; clockOut: string;
+  regularDayOT: number; regularDayOTAfter9PM: number; publicHolidayOT: number; totalOTApproved: number;
+  preApproved: boolean;
+  l1Status: ApprovalStatus; l1ManagerName?: string;
+  l2Status: ApprovalStatus | null; l2ManagerName?: string;
+}
+
+function _toOTRecord(r: _RawOT): OTRecord {
+  const submitted: OTHours = {
+    regularDayOT: r.regularDayOT,
+    regularDayOTAfter9PM: r.regularDayOTAfter9PM,
+    publicHolidayOT: r.publicHolidayOT,
+    total: r.totalOTApproved,
+  };
+  return {
+    empId: r.empId, managerId: r.managerId, name: r.name, grade: r.grade,
+    entity: r.entity, department: r.department, date: r.date,
+    clockIn: r.clockIn, clockOut: r.clockOut,
+    preApproved: r.preApproved,
+    employee_submit_status: 'Submitted',
+    employee_submitted_hours: submitted,
+    l1_approval_status: r.l1Status,
+    l1_approved_hours: r.l1Status === 'Approved' ? { ...submitted } : null,
+    l1_comments: '',
+    l1ManagerName: r.l1ManagerName,
+    l2_approval_status: r.l2Status,
+    l2_comments: '',
+    l2ManagerName: r.l2ManagerName,
+    reason: '',
+  };
 }
 
 export const HR_ENTITIES = ['Etihad Rail'] as const;
@@ -208,100 +254,102 @@ export const HR_DEPARTMENTS = [
 ] as const;
 
 // June 2026: Mon 1 → Tue 30  (weekends: 6,7,13,14,20,21,27,28)
-const OT_RECORDS_WORKDAY: OTRecord[] = [
+const _RAW_OT_WORKDAY: _RawOT[] = [
   // ── Srikanth Kadaru EMP-1001  (G5, shift 06:00–14:00, mgr: Rama Krishna) ──
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '02 Jun 2026', clockIn: '06:02', clockOut: '19:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 0, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '05 Jun 2026', clockIn: '06:00', clockOut: '17:00', regularDayOT: 3,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3,   timeInLieu: 0, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '10 Jun 2026', clockIn: '05:55', clockOut: '17:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 1, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '15 Jun 2026', clockIn: '06:00', clockOut: '19:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 13, totalOTApproved: 13,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '19 Jun 2026', clockIn: '06:05', clockOut: '18:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '02 Jun 2026', clockIn: '06:02', clockOut: '19:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '05 Jun 2026', clockIn: '06:00', clockOut: '17:00', regularDayOT: 3,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '10 Jun 2026', clockIn: '05:55', clockOut: '17:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '15 Jun 2026', clockIn: '06:00', clockOut: '19:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 13, totalOTApproved: 13, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '19 Jun 2026', clockIn: '06:05', clockOut: '18:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
 
   // ── Priya Nair EMP-1004  (G7, shift 07:00–15:00, mgr: Rama Krishna) ───────
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '01 Jun 2026', clockIn: '07:02', clockOut: '22:00', regularDayOT: 7,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 7,   timeInLieu: 2, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '08 Jun 2026', clockIn: '07:05', clockOut: '19:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 0, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '11 Jun 2026', clockIn: '07:00', clockOut: '19:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 1, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Pending'  },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '17 Jun 2026', clockIn: '06:55', clockOut: '20:30', regularDayOT: 5.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5.5, timeInLieu: 0, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '23 Jun 2026', clockIn: '07:00', clockOut: '21:00', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 6,   timeInLieu: 2, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '01 Jun 2026', clockIn: '07:02', clockOut: '22:00', regularDayOT: 7,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 7, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '08 Jun 2026', clockIn: '07:05', clockOut: '19:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '11 Jun 2026', clockIn: '07:00', clockOut: '19:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Pending'  },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '17 Jun 2026', clockIn: '06:55', clockOut: '20:30', regularDayOT: 5.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5.5, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '23 Jun 2026', clockIn: '07:00', clockOut: '21:00', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 6, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
 
   // ── Marcus Webb EMP-1005  (G4, shift 08:00–16:00, mgr: Rama Krishna) ──────
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '03 Jun 2026', clockIn: '08:05', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 1, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '08 Jun 2026', clockIn: '08:00', clockOut: '19:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 0, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '15 Jun 2026', clockIn: '08:10', clockOut: '20:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 11.83, totalOTApproved: 11.83, timeInLieu: 0, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '22 Jun 2026', clockIn: '07:58', clockOut: '20:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 1, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '03 Jun 2026', clockIn: '08:05', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '08 Jun 2026', clockIn: '08:00', clockOut: '19:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '15 Jun 2026', clockIn: '08:10', clockOut: '20:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 11.83, totalOTApproved: 11.83, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '22 Jun 2026', clockIn: '07:58', clockOut: '20:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
 
   // ── Layla Hassan EMP-1006  (G6, shift 09:00–17:00, mgr: Rama Krishna) ─────
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '04 Jun 2026', clockIn: '09:00', clockOut: '23:00', regularDayOT: 5,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0, totalOTApproved: 6,   timeInLieu: 0, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '09 Jun 2026', clockIn: '08:58', clockOut: '21:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 0, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '16 Jun 2026', clockIn: '09:02', clockOut: '22:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 2, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '22 Jun 2026', clockIn: '09:00', clockOut: '21:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 1, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '04 Jun 2026', clockIn: '09:00', clockOut: '23:00', regularDayOT: 5,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0, totalOTApproved: 6, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '09 Jun 2026', clockIn: '08:58', clockOut: '21:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '16 Jun 2026', clockIn: '09:02', clockOut: '22:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '22 Jun 2026', clockIn: '09:00', clockOut: '21:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
 
   // ── Tom Bancroft EMP-1007  (G3, shift 10:00–18:00, mgr: Rama Krishna) ─────
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '05 Jun 2026', clockIn: '09:55', clockOut: '22:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 3, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '12 Jun 2026', clockIn: '10:00', clockOut: '21:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, timeInLieu: 0, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Pending'  },
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '18 Jun 2026', clockIn: '09:58', clockOut: '22:30', regularDayOT: 4,   regularDayOTAfter9PM: 0.5, publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 1, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '24 Jun 2026', clockIn: '10:00', clockOut: '24:00', regularDayOT: 4,   regularDayOTAfter9PM: 2,   publicHolidayOT: 0, totalOTApproved: 6,   timeInLieu: 2, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '05 Jun 2026', clockIn: '09:55', clockOut: '22:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '12 Jun 2026', clockIn: '10:00', clockOut: '21:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 3.5, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Rama Krishna',       l2Status: 'Pending'  },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '18 Jun 2026', clockIn: '09:58', clockOut: '22:30', regularDayOT: 4,   regularDayOTAfter9PM: 0.5, publicHolidayOT: 0, totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '24 Jun 2026', clockIn: '10:00', clockOut: '24:00', regularDayOT: 4,   regularDayOTAfter9PM: 2,   publicHolidayOT: 0, totalOTApproved: 6, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
 
   // ── Zara Khalid EMP-1009  (G6, shift 07:30–15:30, mgr: Ahmed Al Mansoori) ─
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '02 Jun 2026', clockIn: '07:28', clockOut: '20:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 0, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '09 Jun 2026', clockIn: '07:30', clockOut: '21:30', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 6,   timeInLieu: 1, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Pending'  },
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '16 Jun 2026', clockIn: '07:32', clockOut: '20:30', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 0, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '23 Jun 2026', clockIn: '07:30', clockOut: '19:30', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 0, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '02 Jun 2026', clockIn: '07:28', clockOut: '20:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '09 Jun 2026', clockIn: '07:30', clockOut: '21:30', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 6, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Pending'  },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '16 Jun 2026', clockIn: '07:32', clockOut: '20:30', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '23 Jun 2026', clockIn: '07:30', clockOut: '19:30', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
 
   // ── Faisal Rahman EMP-1010  (G5, shift 08:30–16:30, mgr: Ahmed Al Mansoori)
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '03 Jun 2026', clockIn: '08:28', clockOut: '21:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, timeInLieu: 0, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '10 Jun 2026', clockIn: '08:30', clockOut: '22:30', regularDayOT: 5.5, regularDayOTAfter9PM: 0.5, publicHolidayOT: 0, totalOTApproved: 6,   timeInLieu: 2, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Pending'  },
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '17 Jun 2026', clockIn: '08:32', clockOut: '20:30', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4,   timeInLieu: 1, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '24 Jun 2026', clockIn: '08:30', clockOut: '21:30', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5,   timeInLieu: 0, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '03 Jun 2026', clockIn: '08:28', clockOut: '21:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4.5, preApproved: true,  l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Approved', l2ManagerName: 'Khalid Al Rashidi' },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '10 Jun 2026', clockIn: '08:30', clockOut: '22:30', regularDayOT: 5.5, regularDayOTAfter9PM: 0.5, publicHolidayOT: 0, totalOTApproved: 6, preApproved: false, l1Status: 'Approved', l1ManagerName: 'Ahmed Al Mansoori', l2Status: 'Pending'  },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '17 Jun 2026', clockIn: '08:32', clockOut: '20:30', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 4, preApproved: true,  l1Status: 'Pending',                                     l2Status: null       },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '24 Jun 2026', clockIn: '08:30', clockOut: '21:30', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0, totalOTApproved: 5, preApproved: false, l1Status: 'Pending',                                     l2Status: null       },
 
   // ── July 2026: Wed 1 → Fri 31  (weekends: 4,5,11,12,18,19,25,26 — public holiday: 8 Jul = Islamic New Year) ──
 
   // ── Srikanth Kadaru EMP-1001  (G5, shift 06:00–14:00, mgr: Rama Krishna) ──
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '01 Jul 2026', clockIn: '06:00', clockOut: '18:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '07 Jul 2026', clockIn: '06:00', clockOut: '17:00', regularDayOT: 3,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 3,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '08 Jul 2026', clockIn: '06:00', clockOut: '19:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 13,   totalOTApproved: 13,   timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '14 Jul 2026', clockIn: '06:00', clockOut: '18:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 1, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '22 Jul 2026', clockIn: '06:00', clockOut: '20:00', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 6,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '29 Jul 2026', clockIn: '06:00', clockOut: '17:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 3.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '01 Jul 2026', clockIn: '06:00', clockOut: '18:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '07 Jul 2026', clockIn: '06:00', clockOut: '17:00', regularDayOT: 3,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 3, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '08 Jul 2026', clockIn: '06:00', clockOut: '19:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 13,   totalOTApproved: 13, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '14 Jul 2026', clockIn: '06:00', clockOut: '18:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '22 Jul 2026', clockIn: '06:00', clockOut: '20:00', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 6, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1001', managerId: 'EMP-1002', name: 'Srikanth Kadaru', grade: 'G5', entity: 'Etihad Rail', department: 'IT & Systems',   date: '29 Jul 2026', clockIn: '06:00', clockOut: '17:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 3.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
 
   // ── Priya Nair EMP-1004  (G7, shift 07:00–15:00, mgr: Rama Krishna) ───────
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '02 Jul 2026', clockIn: '07:00', clockOut: '21:00', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 6,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '10 Jul 2026', clockIn: '07:00', clockOut: '20:30', regularDayOT: 5.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5.5,  timeInLieu: 1, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '16 Jul 2026', clockIn: '07:00', clockOut: '19:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '23 Jul 2026', clockIn: '07:00', clockOut: '20:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '30 Jul 2026', clockIn: '07:00', clockOut: '19:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '02 Jul 2026', clockIn: '07:00', clockOut: '21:00', regularDayOT: 6,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 6, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '10 Jul 2026', clockIn: '07:00', clockOut: '20:30', regularDayOT: 5.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '16 Jul 2026', clockIn: '07:00', clockOut: '19:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '23 Jul 2026', clockIn: '07:00', clockOut: '20:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1004', managerId: 'EMP-1002', name: 'Priya Nair',      grade: 'G7', entity: 'Etihad Rail', department: 'Infrastructure', date: '30 Jul 2026', clockIn: '07:00', clockOut: '19:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
 
   // ── Marcus Webb EMP-1005  (G4, shift 08:00–16:00, mgr: Rama Krishna) ──────
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '03 Jul 2026', clockIn: '08:05', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '09 Jul 2026', clockIn: '08:00', clockOut: '20:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '17 Jul 2026', clockIn: '08:00', clockOut: '21:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '24 Jul 2026', clockIn: '08:00', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 1, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '31 Jul 2026', clockIn: '08:00', clockOut: '19:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 3.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '03 Jul 2026', clockIn: '08:05', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '09 Jul 2026', clockIn: '08:00', clockOut: '20:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '17 Jul 2026', clockIn: '08:00', clockOut: '21:00', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '24 Jul 2026', clockIn: '08:00', clockOut: '20:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1005', managerId: 'EMP-1002', name: 'Marcus Webb',     grade: 'G4', entity: 'Etihad Rail', department: 'Operations',     date: '31 Jul 2026', clockIn: '08:00', clockOut: '19:30', regularDayOT: 3.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 3.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
 
   // ── Layla Hassan EMP-1006  (G6, shift 09:00–17:00, mgr: Rama Krishna) ─────
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '01 Jul 2026', clockIn: '09:00', clockOut: '22:00', regularDayOT: 4,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 5,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '09 Jul 2026', clockIn: '09:00', clockOut: '21:30', regularDayOT: 4,   regularDayOTAfter9PM: 0.5, publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '15 Jul 2026', clockIn: '09:00', clockOut: '22:30', regularDayOT: 4,   regularDayOTAfter9PM: 1.5, publicHolidayOT: 0,    totalOTApproved: 5.5,  timeInLieu: 2, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '23 Jul 2026', clockIn: '09:00', clockOut: '21:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '01 Jul 2026', clockIn: '09:00', clockOut: '22:00', regularDayOT: 4,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '09 Jul 2026', clockIn: '09:00', clockOut: '21:30', regularDayOT: 4,   regularDayOTAfter9PM: 0.5, publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '15 Jul 2026', clockIn: '09:00', clockOut: '22:30', regularDayOT: 4,   regularDayOTAfter9PM: 1.5, publicHolidayOT: 0,    totalOTApproved: 5.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1006', managerId: 'EMP-1002', name: 'Layla Hassan',    grade: 'G6', entity: 'Etihad Rail', department: 'HSSE',           date: '23 Jul 2026', clockIn: '09:00', clockOut: '21:00', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
 
   // ── Tom Bancroft EMP-1007  (G3, shift 10:00–18:00, mgr: Rama Krishna) ─────
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '02 Jul 2026', clockIn: '09:55', clockOut: '22:00', regularDayOT: 3,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '09 Jul 2026', clockIn: '10:00', clockOut: '22:30', regularDayOT: 3,   regularDayOTAfter9PM: 1.5, publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '16 Jul 2026', clockIn: '10:00', clockOut: '23:00', regularDayOT: 3,   regularDayOTAfter9PM: 2,   publicHolidayOT: 0,    totalOTApproved: 5,    timeInLieu: 1, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '28 Jul 2026', clockIn: '10:00', clockOut: '22:00', regularDayOT: 3,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '02 Jul 2026', clockIn: '09:55', clockOut: '22:00', regularDayOT: 3,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '09 Jul 2026', clockIn: '10:00', clockOut: '22:30', regularDayOT: 3,   regularDayOTAfter9PM: 1.5, publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '16 Jul 2026', clockIn: '10:00', clockOut: '23:00', regularDayOT: 3,   regularDayOTAfter9PM: 2,   publicHolidayOT: 0,    totalOTApproved: 5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1007', managerId: 'EMP-1002', name: 'Tom Bancroft',    grade: 'G3', entity: 'Etihad Rail', department: 'Logistics',      date: '28 Jul 2026', clockIn: '10:00', clockOut: '22:00', regularDayOT: 3,   regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
 
   // ── Zara Khalid EMP-1009  (G6, shift 07:30–15:30, mgr: Ahmed Al Mansoori) ─
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '01 Jul 2026', clockIn: '07:30', clockOut: '20:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '08 Jul 2026', clockIn: '07:30', clockOut: '19:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 11.5, totalOTApproved: 11.5, timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '15 Jul 2026', clockIn: '07:30', clockOut: '20:30', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '22 Jul 2026', clockIn: '07:30', clockOut: '19:30', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '29 Jul 2026', clockIn: '07:30', clockOut: '20:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 1, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '01 Jul 2026', clockIn: '07:30', clockOut: '20:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '08 Jul 2026', clockIn: '07:30', clockOut: '19:00', regularDayOT: 0,   regularDayOTAfter9PM: 0,   publicHolidayOT: 11.5, totalOTApproved: 11.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '15 Jul 2026', clockIn: '07:30', clockOut: '20:30', regularDayOT: 5,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '22 Jul 2026', clockIn: '07:30', clockOut: '19:30', regularDayOT: 4,   regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1009', managerId: 'EMP-1008', name: 'Zara Khalid',     grade: 'G6', entity: 'Etihad Rail', department: 'Engineering',    date: '29 Jul 2026', clockIn: '07:30', clockOut: '20:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
 
   // ── Faisal Rahman EMP-1010  (G5, shift 08:30–16:30, mgr: Ahmed Al Mansoori)
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '03 Jul 2026', clockIn: '08:30', clockOut: '21:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '10 Jul 2026', clockIn: '08:30', clockOut: '22:00', regularDayOT: 4.5, regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 5.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '17 Jul 2026', clockIn: '08:30', clockOut: '21:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5,  timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
-  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '24 Jul 2026', clockIn: '08:30', clockOut: '21:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0.5, publicHolidayOT: 0,    totalOTApproved: 5,    timeInLieu: 0, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '03 Jul 2026', clockIn: '08:30', clockOut: '21:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '10 Jul 2026', clockIn: '08:30', clockOut: '22:00', regularDayOT: 4.5, regularDayOTAfter9PM: 1,   publicHolidayOT: 0,    totalOTApproved: 5.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '17 Jul 2026', clockIn: '08:30', clockOut: '21:00', regularDayOT: 4.5, regularDayOTAfter9PM: 0,   publicHolidayOT: 0,    totalOTApproved: 4.5, preApproved: true,  l1Status: 'Pending', l2Status: null },
+  { empId: 'EMP-1010', managerId: 'EMP-1008', name: 'Faisal Rahman',   grade: 'G5', entity: 'Etihad Rail', department: 'Procurement',    date: '24 Jul 2026', clockIn: '08:30', clockOut: '21:30', regularDayOT: 4.5, regularDayOTAfter9PM: 0.5, publicHolidayOT: 0,    totalOTApproved: 5, preApproved: true,  l1Status: 'Pending', l2Status: null },
 ];
+
+const OT_RECORDS_WORKDAY: OTRecord[] = _RAW_OT_WORKDAY.map(_toOTRecord);
 
 // ─── Grade → gross pay ────────────────────────────────────────────────────────
 
@@ -459,8 +507,11 @@ const J27_OT: Record<string, Array<{
 }>> = {
   'EMP-1001': [
     { day:  1, otStart: '14:00', otEnd: '18:30', otHours: 4.5, clockIn: '06:00', clockOut: '18:30' },
+    { day:  2, otStart: '14:00', otEnd: '15:30', otHours: 1.5, clockIn: '06:00', clockOut: '15:30' }, // eligible — no OT record
+    { day:  6, otStart: '14:00', otEnd: '16:00', otHours: 2,   clockIn: '05:58', clockOut: '16:00' }, // eligible — no OT record
     { day:  7, otStart: '14:00', otEnd: '17:00', otHours: 3,   clockIn: '06:00', clockOut: '17:00' },
     { day:  8, otStart: '14:00', otEnd: '19:00', otHours: 5,   clockIn: '06:00', clockOut: '19:00' }, // public holiday
+    { day:  9, otStart: '14:00', otEnd: '15:45', otHours: 1.75, clockIn: '06:00', clockOut: '15:45' }, // eligible — no OT record
     { day: 14, otStart: '14:00', otEnd: '18:00', otHours: 4,   clockIn: '06:00', clockOut: '18:00' },
     { day: 22, otStart: '14:00', otEnd: '20:00', otHours: 6,   clockIn: '06:00', clockOut: '20:00' },
     { day: 29, otStart: '14:00', otEnd: '17:30', otHours: 3.5, clockIn: '06:00', clockOut: '17:30' },
@@ -549,14 +600,16 @@ function buildOffDayOtRecords(
         date: `${String(od.day).padStart(2, '0')} ${monthStr}`,
         clockIn: od.clockIn,
         clockOut: od.clockOut,
-        regularDayOT: 0,
-        regularDayOTAfter9PM: 0,
-        publicHolidayOT: totalHours,
-        totalOTApproved: totalHours,
-        timeInLieu: 0,
+
         preApproved: false,
-        l1Status: 'Pending',
-        l2Status: null,
+        employee_submit_status: 'Submitted',
+        employee_submitted_hours: { regularDayOT: 0, regularDayOTAfter9PM: 0, publicHolidayOT: totalHours, total: totalHours },
+        l1_approval_status: 'Pending',
+        l1_approved_hours: null,
+        l1_comments: '',
+        l2_approval_status: null,
+        l2_comments: '',
+        reason: '',
       });
     }
   }
@@ -576,7 +629,7 @@ function buildMonthOtStatusMap(monthStr: string): Map<string, string> {
   for (const r of OT_RECORDS) {
     if (!r.date.includes(monthStr)) continue;
     const day = parseInt(r.date.split(' ')[0], 10);
-    map.set(`${r.empId}-${day}`, r.l1Status);
+    map.set(`${r.empId}-${day}`, r.l1_approval_status);
   }
   return map;
 }

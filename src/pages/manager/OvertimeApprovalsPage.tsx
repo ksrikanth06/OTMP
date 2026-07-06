@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { calcOtPay, fmtAed, MONTHS, getHodIdForManager } from '@/services/dataService';
+import { MONTHS, getHodIdForManager } from '@/services/dataService';
 import type { OTRecord } from '@/services/dataService';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import {
@@ -32,6 +32,7 @@ interface DetailDraft {
   regularDayOT: number;
   regularDayOTAfter9PM: number;
   publicHolidayOT: number;
+  l1_comments: string;
 }
 
 const computeTotal = (d: DetailDraft) =>
@@ -58,7 +59,7 @@ export function OvertimeApprovalsPage() {
   const [rejectDialog, setRejectDialog] = useState<{ mode: 'bulk' } | { mode: 'single'; draft: DetailDraft } | null>(null);
   const [rejectComment, setRejectComment] = useState('');
 
-  // L1: filter by managerId; L2: filter by hodId (derived from L1 manager's managerId)
+  // L1: filter by managerId; L2: filter by hodId
   const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
     const inPeriod = p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
@@ -67,27 +68,26 @@ export function OvertimeApprovalsPage() {
     return r.managerId === userId;
   });
 
-  // Tab counts
   const pendingCount = isL2
-    ? records.filter((r) => r.l1Status === 'Approved' && r.l2Status === 'Pending').length
-    : records.filter((r) => r.l1Status === 'Pending').length;
+    ? records.filter((r) => r.l1_approval_status === 'Approved' && r.l2_approval_status === 'Pending').length
+    : records.filter((r) => r.l1_approval_status === 'Pending').length;
   const approvedCount = isL2
-    ? records.filter((r) => r.l2Status === 'Approved').length
-    : records.filter((r) => r.l1Status === 'Approved').length;
+    ? records.filter((r) => r.l2_approval_status === 'Approved').length
+    : records.filter((r) => r.l1_approval_status === 'Approved').length;
 
   const filteredRecords = records
     .filter((r) => {
       if (activeTab === 'pending') {
         return isL2
-          ? r.l1Status === 'Approved' && r.l2Status === 'Pending'
-          : r.l1Status === 'Pending';
+          ? r.l1_approval_status === 'Approved' && r.l2_approval_status === 'Pending'
+          : r.l1_approval_status === 'Pending';
       }
-      return isL2 ? r.l2Status === 'Approved' : r.l1Status === 'Approved';
+      return isL2 ? r.l2_approval_status === 'Approved' : r.l1_approval_status === 'Approved';
     })
     .filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
 
   const isPendingRecord = (r: OTRecord) =>
-    isL2 ? (r.l1Status === 'Approved' && r.l2Status === 'Pending') : r.l1Status === 'Pending';
+    isL2 ? (r.l1_approval_status === 'Approved' && r.l2_approval_status === 'Pending') : r.l1_approval_status === 'Pending';
 
   const years = Array.from({ length: 5 }, (_, i) => todayYear - i);
   const maxMonth = year === todayYear ? todayMonth : 12;
@@ -101,12 +101,20 @@ export function OvertimeApprovalsPage() {
   };
 
   const openDetail = (r: OTRecord) => {
-    setDetail({ record: r, regularDayOT: r.regularDayOT, regularDayOTAfter9PM: r.regularDayOTAfter9PM, publicHolidayOT: r.publicHolidayOT });
+    const src = r.l1_approved_hours ?? r.employee_submitted_hours;
+    setDetail({
+      record: r,
+      regularDayOT: src.regularDayOT,
+      regularDayOTAfter9PM: src.regularDayOTAfter9PM,
+      publicHolidayOT: src.publicHolidayOT,
+      l1_comments: r.l1_comments,
+    });
   };
 
   const maxOTHours = (r: OTRecord) => {
     const worked = workedHours(r);
-    if (r.publicHolidayOT > 0 && r.regularDayOT === 0) return worked;
+    const sub = r.employee_submitted_hours;
+    if (sub.publicHolidayOT > 0 && sub.regularDayOT === 0) return worked;
     return Math.round(Math.max(0, worked - 8) * 100) / 100;
   };
 
@@ -126,13 +134,13 @@ export function OvertimeApprovalsPage() {
 
   const commitL1Draft = (newStatus?: 'Approved' | 'Rejected', comment?: string) => {
     if (!detail) return;
-    const { record, regularDayOT, regularDayOTAfter9PM, publicHolidayOT } = detail;
+    const { record, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, l1_comments } = detail;
     const totalOTApproved = computeTotal(detail);
     const base = { empId: record.empId, date: record.date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved };
     if (newStatus === 'Approved') {
-      dispatch(l1ApproveSingle({ ...base, l1ManagerName: userName }));
+      dispatch(l1ApproveSingle({ ...base, l1ManagerName: userName, l1_comments }));
     } else if (newStatus === 'Rejected') {
-      dispatch(l1RejectSingle({ ...base, comment: comment ?? '' }));
+      dispatch(l1RejectSingle({ ...base, l1_comments: comment ?? '' }));
     } else {
       dispatch(managerSaveOTHours(base));
     }
@@ -170,7 +178,7 @@ export function OvertimeApprovalsPage() {
           empId: draft.record.empId, date: draft.record.date,
           regularDayOT: draft.regularDayOT, regularDayOTAfter9PM: draft.regularDayOTAfter9PM,
           publicHolidayOT: draft.publicHolidayOT, totalOTApproved,
-          comment: trimmed,
+          l1_comments: trimmed,
         }));
       }
     }
@@ -326,22 +334,21 @@ export function OvertimeApprovalsPage() {
               <th className={th}>Name</th>
               <th className={th}>Date</th>
               <th className={th}>Grade</th>
-              <th className={th}>Regular Day OT (Hrs)</th>
-              <th className={th}>Non-Reg Hrs OT (22:00–04:00)</th>
-              <th className={th}>Public / Rest Holiday (Hrs)</th>
+              <th className={th}>Submitted Hrs</th>
+              <th className={th}>Reg Day OT (Hrs)</th>
+              <th className={th}>Non-Reg Hrs OT</th>
+              <th className={th}>Holiday OT (Hrs)</th>
               <th className={th}>Total OT (Hrs)</th>
-              <th className={th}>Time in Lieu (Hrs)</th>
               <th className={`${th} text-center`}>Pre-Approved</th>
               <th className={th}>L1 Status</th>
               {activeTab === 'approved' && !isL2 && <th className={th}>HoD Approval</th>}
               {isL2 && activeTab === 'approved' && <th className={th}>L1 Approver</th>}
-              <th className={th}>OT Pay (AED)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {filteredRecords.length === 0 ? (
               <tr>
-                <td colSpan={14} className="py-12 text-center text-sm text-content-muted">
+                <td colSpan={13} className="py-12 text-center text-sm text-content-muted">
                   No {activeTab === 'pending' ? pendingTabLabel.toLowerCase() : approvedTabLabel.toLowerCase()} records for {MONTHS[month - 1]} {year}.
                 </td>
               </tr>
@@ -349,7 +356,8 @@ export function OvertimeApprovalsPage() {
               filteredRecords.map((r) => {
                 const key = mkOTKey(r.empId, r.date);
                 const isPending = isPendingRecord(r);
-                const { totalOTPay } = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
+                // Pending → show submitted hours; Approved → show L1-approved hours
+                const displayHrs = (!isPending && r.l1_approved_hours) ? r.l1_approved_hours : r.employee_submitted_hours;
                 return (
                   <tr
                     key={key}
@@ -371,11 +379,11 @@ export function OvertimeApprovalsPage() {
                     <td className={td}>
                       <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand">{r.grade}</span>
                     </td>
-                    <td className={`${td} text-center`}>{r.regularDayOT}</td>
-                    <td className={`${td} text-center`}>{r.regularDayOTAfter9PM}</td>
-                    <td className={`${td} text-center`}>{r.publicHolidayOT}</td>
-                    <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
-                    <td className={`${td} text-center`}>{r.timeInLieu}</td>
+                    <td className={`${td} text-center text-xs text-content-secondary`}>{r.employee_submitted_hours.total}</td>
+                    <td className={`${td} text-center`}>{displayHrs.regularDayOT}</td>
+                    <td className={`${td} text-center`}>{displayHrs.regularDayOTAfter9PM}</td>
+                    <td className={`${td} text-center`}>{displayHrs.publicHolidayOT}</td>
+                    <td className={`${td} text-center font-semibold`}>{displayHrs.total}</td>
                     <td className={`${td} text-center`}>
                       {r.preApproved ? (
                         <input type="checkbox" checked disabled className="h-4 w-4 cursor-not-allowed opacity-60 accent-brand" />
@@ -384,29 +392,28 @@ export function OvertimeApprovalsPage() {
                     <td className={td}>
                       <span className={[
                         'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                        r.l1Status === 'Approved' ? 'bg-success/15 text-success' :
-                        r.l1Status === 'Rejected' ? 'bg-danger/15 text-danger' :
+                        r.l1_approval_status === 'Approved' ? 'bg-success/15 text-success' :
+                        r.l1_approval_status === 'Rejected' ? 'bg-danger/15 text-danger' :
                         'bg-warning/15 text-warning',
                       ].join(' ')}>
-                        {r.l1Status}
+                        {r.l1_approval_status}
                       </span>
                     </td>
                     {activeTab === 'approved' && !isL2 && (
                       <td className={td}>
                         <span className={[
                           'rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                          r.l2Status === 'Approved' ? 'bg-success/15 text-success' :
-                          r.l2Status === 'Rejected' ? 'bg-danger/15 text-danger' :
+                          r.l2_approval_status === 'Approved' ? 'bg-success/15 text-success' :
+                          r.l2_approval_status === 'Rejected' ? 'bg-danger/15 text-danger' :
                           'bg-warning/15 text-warning',
                         ].join(' ')}>
-                          {r.l2Status ?? 'Pending'}
+                          {r.l2_approval_status ?? 'Pending'}
                         </span>
                       </td>
                     )}
                     {isL2 && activeTab === 'approved' && (
                       <td className={`${td} text-content-secondary`}>{r.l1ManagerName ?? '—'}</td>
                     )}
-                    <td className={`${td} font-semibold`}>AED {fmtAed(totalOTPay)}</td>
                   </tr>
                 );
               })
@@ -419,27 +426,17 @@ export function OvertimeApprovalsPage() {
       {detail && (() => {
         const r = detail.record;
         const isPending = isPendingRecord(r);
-        const isRejected = isL2 ? r.l2Status === 'Rejected' : r.l1Status === 'Rejected';
-        const rejectionComment = isL2 ? r.l2RejectionComment : r.l1RejectionComment;
+        const isRejected = isL2 ? r.l2_approval_status === 'Rejected' : r.l1_approval_status === 'Rejected';
+        const rejectionComment = isL2 ? r.l2_comments : r.l1_comments;
         const { hhmm, decimal: workedDec } = formatWorked(r);
         const otMax   = maxOTHours(r);
         const totalOT = computeTotal(detail);
-        const { grossPay, grossPayPerHour, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay } =
-          calcOtPay(r.grade, detail.regularDayOT, detail.regularDayOTAfter9PM, detail.publicHolidayOT);
-        const payRows: [string, string, string?][] = [
-          ['Gross Pay / Month', fmtAed(grossPay)],
-          ['Basic Pay / Month (88%)', fmtAed(basicPayMonth)],
-          ['Basic Hourly Rate', fmtAed(basicPayHour)],
-          ['Gross Hourly Rate', fmtAed(grossPayPerHour)],
-          ['Regular Day OT', fmtAed(regularOTPay), `${detail.regularDayOT} hr${detail.regularDayOT !== 1 ? 's' : ''} × 1.25`],
-          ['Non-Reg Hrs OT (22:00–04:00)', fmtAed(after9PMOTPay), `${detail.regularDayOTAfter9PM} hr${detail.regularDayOTAfter9PM !== 1 ? 's' : ''} × 1.5`],
-          ['Public / Rest Holiday OT', fmtAed(holidayOTPay), `${detail.publicHolidayOT} hrs × Gross Rate + ${detail.publicHolidayOT} hrs × 0.5 × Basic Rate`],
-        ];
+        const sub = r.employee_submitted_hours;
 
         const statusBadge = isL2
-          ? (r.l2Status === 'Approved' ? 'bg-success/15 text-success' : r.l2Status === 'Rejected' ? 'bg-danger/15 text-danger' : 'bg-warning/15 text-warning')
-          : (r.l1Status === 'Approved' ? 'bg-success/15 text-success' : r.l1Status === 'Rejected' ? 'bg-danger/15 text-danger' : 'bg-warning/15 text-warning');
-        const statusLabel = isL2 ? (r.l2Status ?? 'Pending') : r.l1Status;
+          ? (r.l2_approval_status === 'Approved' ? 'bg-success/15 text-success' : r.l2_approval_status === 'Rejected' ? 'bg-danger/15 text-danger' : 'bg-warning/15 text-warning')
+          : (r.l1_approval_status === 'Approved' ? 'bg-success/15 text-success' : r.l1_approval_status === 'Rejected' ? 'bg-danger/15 text-danger' : 'bg-warning/15 text-warning');
+        const statusLabel = isL2 ? (r.l2_approval_status ?? 'Pending') : r.l1_approval_status;
 
         return (
           <Modal onClose={() => setDetail(null)}>
@@ -500,7 +497,7 @@ export function OvertimeApprovalsPage() {
                     </div>
                   )}
 
-                  {/* Rejection reason */}
+                  {/* Rejection / comment note */}
                   {isRejected && rejectionComment && (
                     <div className="flex gap-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 text-danger mt-0.5" viewBox="0 0 20 20" fill="currentColor">
@@ -510,15 +507,41 @@ export function OvertimeApprovalsPage() {
                     </div>
                   )}
 
-                  {/* OT Hours */}
+                  {/* Reason for overtime */}
+                  {r.reason && (
+                    <div>
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">Reason for Overtime</p>
+                      <p className="rounded-lg bg-surface-overlay px-3 py-2 text-xs text-content-secondary">{r.reason}</p>
+                    </div>
+                  )}
+
+                  {/* Employee Submitted Hours — always shown as read-only reference */}
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">Employee Submitted Hours</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {([
+                        ['Reg Day OT', sub.regularDayOT],
+                        ['Non-Reg OT', sub.regularDayOTAfter9PM],
+                        ['Holiday OT', sub.publicHolidayOT],
+                        ['Total', sub.total],
+                      ] as [string, number][]).map(([label, val]) => (
+                        <div key={label} className="rounded-md border border-line bg-surface-sunken px-2 py-1.5 text-center">
+                          <p className="text-[9px] text-content-muted">{label}</p>
+                          <p className="mt-0.5 text-xs font-semibold text-content-secondary">{val} hrs</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* L1 Approval Hours */}
                   <div>
                     <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">
-                      OT Hours {isPending && !isL2 && `· max ${otMax} hrs (${workedDec} worked${r.publicHolidayOT > 0 && r.regularDayOT === 0 ? '' : ' − 8h shift'})`}
+                      {isL2 ? 'L1 Approved Hours' : `L1 Approval Hours${isPending ? ` · max ${otMax} hrs` : ''}`}
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       {([
                         ['Reg Day OT', 'regularDayOT', detail.regularDayOT],
-                        ['Non-Reg Hrs OT', 'regularDayOTAfter9PM', detail.regularDayOTAfter9PM],
+                        ['Non-Reg OT', 'regularDayOTAfter9PM', detail.regularDayOTAfter9PM],
                         ['Holiday OT', 'publicHolidayOT', detail.publicHolidayOT],
                       ] as [string, 'regularDayOT' | 'regularDayOTAfter9PM' | 'publicHolidayOT', number][]).map(([label, field, val]) => (
                         <div key={field}>
@@ -542,29 +565,60 @@ export function OvertimeApprovalsPage() {
                       ))}
                     </div>
                     <div className="mt-2 flex items-center gap-4 rounded-md bg-surface-overlay px-3 py-1.5 text-xs">
-                      <span className="text-content-secondary">Total OT Approved</span>
+                      <span className="text-content-secondary">Total OT</span>
                       <span className="font-bold text-content-primary">{totalOT} hrs</span>
-                      <span className="ml-auto text-content-secondary">Time in Lieu</span>
-                      <span className="font-semibold text-content-primary">{r.timeInLieu} hrs</span>
                     </div>
                   </div>
 
-                  {/* Pay breakdown */}
-                  <div className="hidden">
-                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">OT Pay Calculation</p>
-                    <div className="divide-y divide-line rounded-lg border border-line bg-surface-overlay">
-                      {payRows.map(([label, amount, note]) => (
-                        <div key={label} className="flex items-center justify-between px-3 py-1.5">
-                          <p className="text-xs text-content-secondary">{label}{note && <span className="ml-1 text-[10px] text-content-muted">({note})</span>}</p>
-                          <span className="text-xs font-semibold text-content-primary">AED {amount}</span>
-                        </div>
-                      ))}
+                  {/* L1 Comments (editable when L1 pending, read-only otherwise) */}
+                  {!isL2 && (
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted mb-1.5">
+                        {isPending ? 'L1 Comments (optional)' : 'L1 Comments'}
+                      </label>
+                      {isPending ? (
+                        <textarea
+                          rows={2}
+                          value={detail.l1_comments}
+                          onChange={(e) => setDetail((d) => d ? { ...d, l1_comments: e.target.value } : d)}
+                          placeholder="Add a note for the employee or HoD…"
+                          className="w-full resize-none rounded-lg border border-line bg-surface-sunken px-3 py-2 text-xs text-content-primary placeholder:text-content-muted focus:border-brand focus:outline-none"
+                        />
+                      ) : r.l1_comments ? (
+                        <p className="rounded-lg bg-surface-overlay px-3 py-2 text-xs text-content-secondary">{r.l1_comments}</p>
+                      ) : null}
                     </div>
-                    <div className="mt-1.5 flex items-center justify-between rounded-lg bg-brand/10 px-3 py-2">
-                      <p className="text-xs font-semibold text-brand">Total OT Pay</p>
-                      <span className="text-sm font-bold text-brand">AED {fmtAed(totalOTPay)}</span>
+                  )}
+
+                  {/* L1 Comments — shown read-only to L2 */}
+                  {isL2 && r.l1_comments && (
+                    <div>
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">
+                        L1 Manager Comments
+                      </p>
+                      <p className="rounded-lg bg-surface-overlay px-3 py-2 text-xs text-content-secondary">{r.l1_comments}</p>
                     </div>
-                  </div>
+                  )}
+
+                  {/* L2 Comments (editable when L2 pending) */}
+                  {isL2 && (
+                    <div>
+                      <label className="block text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted mb-1.5">
+                        {isPending ? 'HoD Comments (optional)' : 'HoD Comments'}
+                      </label>
+                      {isPending ? (
+                        <textarea
+                          rows={2}
+                          value={detail.l1_comments}
+                          onChange={(e) => setDetail((d) => d ? { ...d, l1_comments: e.target.value } : d)}
+                          placeholder="Add a note for the record…"
+                          className="w-full resize-none rounded-lg border border-line bg-surface-sunken px-3 py-2 text-xs text-content-primary placeholder:text-content-muted focus:border-brand focus:outline-none"
+                        />
+                      ) : r.l2_comments ? (
+                        <p className="rounded-lg bg-surface-overlay px-3 py-2 text-xs text-content-secondary">{r.l2_comments}</p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </div>
 

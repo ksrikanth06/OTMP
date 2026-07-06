@@ -41,8 +41,8 @@ export function HrApprovalsPage() {
   const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
     return (
-      r.l1Status === 'Approved' &&
-      r.l2Status === 'Approved' &&
+      r.l1_approval_status === 'Approved' &&
+      r.l2_approval_status === 'Approved' &&
       p[1] === MONTHS_SHORT[month - 1] &&
       Number(p[2]) === year
     );
@@ -146,7 +146,6 @@ export function HrApprovalsPage() {
               <col className="w-14" />
               <col className="w-28" />
               <col className="w-28" />
-              <col className="w-32" />
             </colgroup>
             <thead className="bg-surface-overlay">
               <tr>
@@ -160,20 +159,18 @@ export function HrApprovalsPage() {
                 <th className={thClass + ' text-center'}>Total</th>
                 <th className={thClass}>L1 Approver</th>
                 <th className={thClass}>L2 Approver</th>
-                <th className={thClass}>OT Pay</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-10 text-center text-sm text-content-muted">
+                  <td colSpan={10} className="py-10 text-center text-sm text-content-muted">
                     No fully-approved records found for {MONTHS[month - 1]} {year}.
                   </td>
                 </tr>
               ) : (
                 filteredRecords.map((r) => {
                   const key = `${r.empId}|${r.date}`;
-                  const { totalOTPay } = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
                   return (
                     <tr
                       key={key}
@@ -184,15 +181,12 @@ export function HrApprovalsPage() {
                       <td className={tdClass + ' truncate font-semibold'}>{r.name}</td>
                       <td className={tdClass}>{r.grade}</td>
                       <td className={tdClass + ' whitespace-nowrap'}>{r.date}</td>
-                      <td className={tdClass + ' text-center'}>{r.regularDayOT}</td>
-                      <td className={tdClass + ' text-center'}>{r.regularDayOTAfter9PM}</td>
-                      <td className={tdClass + ' text-center'}>{r.publicHolidayOT}</td>
-                      <td className={tdClass + ' text-center font-semibold'}>{r.totalOTApproved}</td>
+                      <td className={tdClass + ' text-center'}>{r.l1_approved_hours?.regularDayOT ?? 0}</td>
+                      <td className={tdClass + ' text-center'}>{r.l1_approved_hours?.regularDayOTAfter9PM ?? 0}</td>
+                      <td className={tdClass + ' text-center'}>{r.l1_approved_hours?.publicHolidayOT ?? 0}</td>
+                      <td className={tdClass + ' text-center font-semibold'}>{r.l1_approved_hours?.total ?? 0}</td>
                       <td className={tdClass + ' truncate text-content-secondary'}>{r.l1ManagerName ?? '—'}</td>
                       <td className={tdClass + ' truncate text-content-secondary'}>{r.l2ManagerName ?? '—'}</td>
-                      <td className={tdClass + ' font-semibold text-content-primary'}>
-                        AED {fmt(totalOTPay)}
-                      </td>
                     </tr>
                   );
                 })
@@ -206,13 +200,14 @@ export function HrApprovalsPage() {
       {detail && (() => {
         const r = detail;
         const { hhmm, decimal: workedDec } = formatWorked(r);
+        const approvedHrs = r.l1_approved_hours ?? r.employee_submitted_hours;
         const { grossPay, grossPayPerHour, basicPayMonth, basicPayHour, regularOTPay, after9PMOTPay, holidayOTPay, totalOTPay } =
-          calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
+          calcOtPay(r.grade, approvedHrs.regularDayOT, approvedHrs.regularDayOTAfter9PM, approvedHrs.publicHolidayOT);
 
         const otFields: [string, number][] = [
-          ['Regular Day OT', r.regularDayOT],
-          ['Non-Reg OT (22:00–04:00)', r.regularDayOTAfter9PM],
-          ['Public / Rest Holiday OT', r.publicHolidayOT],
+          ['Regular Day OT', approvedHrs.regularDayOT],
+          ['Non-Reg OT (22:00–04:00)', approvedHrs.regularDayOTAfter9PM],
+          ['Public / Rest Holiday OT', approvedHrs.publicHolidayOT],
         ];
 
         const payRows: [string, string, string?][] = [
@@ -220,9 +215,9 @@ export function HrApprovalsPage() {
           ['Basic Pay / Month (88%)', fmt(basicPayMonth)],
           ['Basic Pay / Hour', fmt(basicPayHour), '×12 ÷ 365 ÷ 8'],
           ['Gross Hourly Rate', fmt(grossPayPerHour), '×12 ÷ 365 ÷ 8'],
-          ['Regular Day OT', fmt(regularOTPay), `${r.regularDayOT} hrs × 1.25`],
-          ['Non-Reg Hrs OT (22:00–04:00)', fmt(after9PMOTPay), `${r.regularDayOTAfter9PM} hrs × 1.5`],
-          ['Public / Rest Holiday OT', fmt(holidayOTPay), `${r.publicHolidayOT} hrs × Gross Rate + ${r.publicHolidayOT} hrs × 0.5 × Basic Rate`],
+          ['Regular Day OT', fmt(regularOTPay), `${approvedHrs.regularDayOT} hrs × 1.25`],
+          ['Non-Reg Hrs OT (22:00–04:00)', fmt(after9PMOTPay), `${approvedHrs.regularDayOTAfter9PM} hrs × 1.5`],
+          ['Public / Rest Holiday OT', fmt(holidayOTPay), `${approvedHrs.publicHolidayOT} hrs × Gross Rate + ${approvedHrs.publicHolidayOT} hrs × 0.5 × Basic Rate`],
         ];
 
         return (
@@ -279,11 +274,33 @@ export function HrApprovalsPage() {
                       <span className="text-content-secondary">L1 Line Manager</span>
                       <span className="font-semibold text-success">{r.l1ManagerName ?? '—'}</span>
                     </div>
+                    {r.l1_comments && (
+                      <div className="px-3 py-2 text-xs">
+                        <span className="text-content-muted">L1 Comment: </span>
+                        <span className="text-content-primary">{r.l1_comments}</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between px-3 py-2 text-xs">
                       <span className="text-content-secondary">L2 Head of Department</span>
                       <span className="font-semibold text-success">{r.l2ManagerName ?? '—'}</span>
                     </div>
+                    {r.l2_comments && (
+                      <div className="px-3 py-2 text-xs">
+                        <span className="text-content-muted">L2 Comment: </span>
+                        <span className="text-content-primary">{r.l2_comments}</span>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Employee submitted hours vs approved */}
+                  {r.employee_submitted_hours.total !== approvedHrs.total && (
+                    <div className="flex items-center gap-3 rounded-lg bg-warning/5 border border-warning/20 px-3 py-2 text-xs">
+                      <span className="text-content-secondary">Employee submitted</span>
+                      <span className="font-semibold text-warning">{r.employee_submitted_hours.total} hrs</span>
+                      <span className="text-content-muted">→ L1 adjusted to</span>
+                      <span className="font-semibold text-content-primary">{approvedHrs.total} hrs</span>
+                    </div>
+                  )}
 
                   {/* OT Hours — read-only */}
                   <div>
@@ -300,7 +317,7 @@ export function HrApprovalsPage() {
                     </div>
                     <div className="mt-2 flex items-center gap-4 rounded-md bg-surface-overlay px-3 py-1.5 text-xs">
                       <span className="text-content-secondary">Total OT</span>
-                      <span className="font-bold text-content-primary">{r.totalOTApproved} hrs</span>
+                      <span className="font-bold text-content-primary">{approvedHrs.total} hrs</span>
                     </div>
                   </div>
 

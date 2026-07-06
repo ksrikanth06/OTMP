@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { getInitialOTRecords } from '@/services/dataService';
-import type { OTRecord } from '@/services/dataService';
+import type { OTHours, OTRecord } from '@/services/dataService';
 
 export const mkOTKey = (empId: string, date: string) => `${empId}|${date}`;
 
@@ -24,10 +24,11 @@ const otSlice = createSlice({
       const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.l1Status = 'Approved';
+        r.l1_approval_status = 'Approved';
         r.l1ManagerName = l1ManagerName;
-        delete r.l1RejectionComment;
-        if (r.l2Status === null) r.l2Status = 'Pending';
+        r.l1_approved_hours = { ...r.employee_submitted_hours };
+        r.l1_comments = '';
+        if (r.l2_approval_status === null) r.l2_approval_status = 'Pending';
       }
     },
 
@@ -36,47 +37,43 @@ const otSlice = createSlice({
       const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.l1Status = 'Rejected';
-        r.l1RejectionComment = comment;
-        r.l2Status = null;
-        delete r.l2RejectionComment;
+        r.l1_approval_status = 'Rejected';
+        r.l1_comments = comment;
+        r.l1_approved_hours = null;
+        r.l2_approval_status = null;
+        r.l2_comments = '';
       }
     },
 
     l1ApproveSingle(state, action: PayloadAction<{
       empId: string; date: string;
       regularDayOT: number; regularDayOTAfter9PM: number; publicHolidayOT: number; totalOTApproved: number;
-      l1ManagerName: string;
+      l1ManagerName: string; l1_comments: string;
     }>) {
-      const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, l1ManagerName } = action.payload;
+      const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, l1ManagerName, l1_comments } = action.payload;
       const rec = state.records.find((r) => r.empId === empId && r.date === date);
       if (!rec) return;
-      rec.regularDayOT = regularDayOT;
-      rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
-      rec.publicHolidayOT = publicHolidayOT;
-      rec.totalOTApproved = totalOTApproved;
-      rec.l1Status = 'Approved';
+      const approved: OTHours = { regularDayOT, regularDayOTAfter9PM, publicHolidayOT, total: totalOTApproved };
+      rec.l1_approval_status = 'Approved';
       rec.l1ManagerName = l1ManagerName;
-      delete rec.l1RejectionComment;
-      if (rec.l2Status === null) rec.l2Status = 'Pending';
+      rec.l1_approved_hours = approved;
+      rec.l1_comments = l1_comments;
+      if (rec.l2_approval_status === null) rec.l2_approval_status = 'Pending';
     },
 
     l1RejectSingle(state, action: PayloadAction<{
       empId: string; date: string;
       regularDayOT: number; regularDayOTAfter9PM: number; publicHolidayOT: number; totalOTApproved: number;
-      comment: string;
+      l1_comments: string;
     }>) {
-      const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, comment } = action.payload;
+      const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved, l1_comments } = action.payload;
       const rec = state.records.find((r) => r.empId === empId && r.date === date);
       if (!rec) return;
-      rec.regularDayOT = regularDayOT;
-      rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
-      rec.publicHolidayOT = publicHolidayOT;
-      rec.totalOTApproved = totalOTApproved;
-      rec.l1Status = 'Rejected';
-      rec.l1RejectionComment = comment;
-      rec.l2Status = null;
-      delete rec.l2RejectionComment;
+      rec.l1_approval_status = 'Rejected';
+      rec.l1_comments = l1_comments;
+      rec.l1_approved_hours = { regularDayOT, regularDayOTAfter9PM, publicHolidayOT, total: totalOTApproved };
+      rec.l2_approval_status = null;
+      rec.l2_comments = '';
     },
 
     managerSaveOTHours(state, action: PayloadAction<{
@@ -86,10 +83,7 @@ const otSlice = createSlice({
       const { empId, date, regularDayOT, regularDayOTAfter9PM, publicHolidayOT, totalOTApproved } = action.payload;
       const rec = state.records.find((r) => r.empId === empId && r.date === date);
       if (!rec) return;
-      rec.regularDayOT = regularDayOT;
-      rec.regularDayOTAfter9PM = regularDayOTAfter9PM;
-      rec.publicHolidayOT = publicHolidayOT;
-      rec.totalOTApproved = totalOTApproved;
+      rec.l1_approved_hours = { regularDayOT, regularDayOTAfter9PM, publicHolidayOT, total: totalOTApproved };
     },
 
     // ── L2 Head of Department actions ────────────────────────────────────────
@@ -99,9 +93,9 @@ const otSlice = createSlice({
       const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.l2Status = 'Approved';
+        r.l2_approval_status = 'Approved';
         r.l2ManagerName = l2ManagerName;
-        delete r.l2RejectionComment;
+        r.l2_comments = '';
       }
     },
 
@@ -110,9 +104,17 @@ const otSlice = createSlice({
       const keySet = new Set(keys);
       for (const r of state.records) {
         if (!keySet.has(mkOTKey(r.empId, r.date))) continue;
-        r.l2Status = 'Rejected';
-        if (comment) r.l2RejectionComment = comment;
+        r.l2_approval_status = 'Rejected';
+        if (comment) r.l2_comments = comment;
       }
+    },
+
+    // ── Employee actions ─────────────────────────────────────────────────────
+
+    employeeSubmitOT(state, action: PayloadAction<OTRecord>) {
+      const { empId, date } = action.payload;
+      const exists = state.records.some((r) => r.empId === empId && r.date === date);
+      if (!exists) state.records.push(action.payload);
     },
   },
 });
@@ -121,6 +123,7 @@ export const {
   l1ApproveRecords, l1RejectRecords,
   l1ApproveSingle, l1RejectSingle, managerSaveOTHours,
   l2ApproveRecords, l2RejectRecords,
+  employeeSubmitOT,
 } = otSlice.actions;
 
 export default otSlice.reducer;

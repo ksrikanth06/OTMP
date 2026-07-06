@@ -19,10 +19,11 @@ function exportCsv(rows: OTRecord[], month: string, year: number) {
   };
 
   const dataRows = rows.map((r) => {
-    const pay = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
+    const hrs = r.l1_approved_hours ?? r.employee_submitted_hours;
+    const pay = calcOtPay(r.grade, hrs.regularDayOT, hrs.regularDayOTAfter9PM, hrs.publicHolidayOT);
     return [
       r.empId, r.name, r.grade, r.date,
-      r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT, r.totalOTApproved,
+      hrs.regularDayOT, hrs.regularDayOTAfter9PM, hrs.publicHolidayOT, hrs.total,
       r.l1ManagerName ?? '', r.l2ManagerName ?? '',
       pay.regularOTPay.toFixed(2), pay.after9PMOTPay.toFixed(2),
       pay.holidayOTPay.toFixed(2), pay.totalOTPay.toFixed(2),
@@ -56,13 +57,14 @@ export function HrPayrollPage() {
 
   const records = allRecords.filter((r) => {
     const p = r.date.split(' ');
-    return r.l1Status === 'Approved' && r.l2Status === 'Approved' && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
+    return r.l1_approval_status === 'Approved' && r.l2_approval_status === 'Approved' && p[1] === MONTHS_SHORT[month - 1] && Number(p[2]) === year;
   });
 
   const filtered = records.filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
 
   const grandTotal = filtered.reduce((sum, r) => {
-    return sum + calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT).totalOTPay;
+    const hrs = r.l1_approved_hours ?? r.employee_submitted_hours;
+    return sum + calcOtPay(r.grade, hrs.regularDayOT, hrs.regularDayOTAfter9PM, hrs.publicHolidayOT).totalOTPay;
   }, 0);
 
   const selectClass =
@@ -167,14 +169,15 @@ export function HrPayrollPage() {
                 </tr>
               ) : (
                 filtered.map((r) => {
-                  const pay = calcOtPay(r.grade, r.regularDayOT, r.regularDayOTAfter9PM, r.publicHolidayOT);
+                  const hrs = r.l1_approved_hours ?? r.employee_submitted_hours;
+                  const pay = calcOtPay(r.grade, hrs.regularDayOT, hrs.regularDayOTAfter9PM, hrs.publicHolidayOT);
                   return (
                     <tr key={`${r.empId}-${r.date}`} className="hover:bg-surface-overlay/60">
                       <td className={td + ' truncate font-mono'}>{r.empId}</td>
                       <td className={td + ' truncate font-semibold'}>{r.name}</td>
                       <td className={td}>{r.grade}</td>
                       <td className={td + ' whitespace-nowrap'}>{r.date}</td>
-                      <td className={td + ' text-center font-semibold'}>{r.totalOTApproved}</td>
+                      <td className={td + ' text-center font-semibold'}>{hrs.total}</td>
                       <td className={td + ' truncate text-content-secondary'}>{r.l1ManagerName ?? '—'}</td>
                       <td className={td + ' truncate text-content-secondary'}>{r.l2ManagerName ?? '—'}</td>
                       <td className={td + ' text-right'}>{fmtAed(pay.regularOTPay)}</td>

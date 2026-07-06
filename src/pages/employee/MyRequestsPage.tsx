@@ -36,9 +36,9 @@ export function MyRequestsPage() {
   };
 
   const effectiveStatus = (r: OTRecord): string => {
-    if (r.l1Status === 'Rejected') return 'Rejected';
-    if (r.l2Status === 'Rejected') return 'Rejected';
-    if (r.l1Status === 'Approved' && r.l2Status === 'Approved') return 'Approved';
+    if (r.l1_approval_status === 'Rejected') return 'Rejected';
+    if (r.l2_approval_status === 'Rejected') return 'Rejected';
+    if (r.l1_approval_status === 'Approved' && r.l2_approval_status === 'Approved') return 'Approved';
     return 'Pending';
   };
 
@@ -172,10 +172,10 @@ export function MyRequestsPage() {
                     <td className={`${td} font-medium`}>{r.date}</td>
                     <td className={`${td} font-mono`}>{r.clockIn}</td>
                     <td className={`${td} font-mono`}>{r.clockOut}</td>
-                    <td className={`${td} text-center`}>{r.regularDayOT}</td>
-                    <td className={`${td} text-center`}>{r.regularDayOTAfter9PM}</td>
-                    <td className={`${td} text-center`}>{r.publicHolidayOT}</td>
-                    <td className={`${td} text-center font-semibold`}>{r.totalOTApproved}</td>
+                    <td className={`${td} text-center`}>{r.employee_submitted_hours.regularDayOT}</td>
+                    <td className={`${td} text-center`}>{r.employee_submitted_hours.regularDayOTAfter9PM}</td>
+                    <td className={`${td} text-center`}>{r.employee_submitted_hours.publicHolidayOT}</td>
+                    <td className={`${td} text-center font-semibold`}>{r.employee_submitted_hours.total}</td>
                     <td className={`${td} border-r-0`}>{statusChip(effectiveStatus(r))}</td>
                   </tr>
                 ))}
@@ -218,24 +218,24 @@ export function MyRequestsPage() {
             </div>
 
             <div className="space-y-3 px-5 py-4">
-              {detail.l1Status === 'Rejected' && detail.l1RejectionComment && (
+              {detail.l1_approval_status === 'Rejected' && detail.l1_comments && (
                 <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
-                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejected by Line Manager:</span> {detail.l1RejectionComment}</p>
+                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejected by Line Manager:</span> {detail.l1_comments}</p>
                 </div>
               )}
-              {detail.l2Status === 'Rejected' && detail.l2RejectionComment && (
+              {detail.l2_approval_status === 'Rejected' && detail.l2_comments && (
                 <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2">
-                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejected by Head of Department:</span> {detail.l2RejectionComment}</p>
+                  <p className="text-xs text-danger/90"><span className="font-semibold">Rejected by Head of Department:</span> {detail.l2_comments}</p>
                 </div>
               )}
 
               <div>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">OT Hours</p>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-content-muted">Submitted Hours</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    ['Reg Day OT', detail.regularDayOT],
-                    ['Non-Reg Hrs OT', detail.regularDayOTAfter9PM],
-                    ['Holiday OT', detail.publicHolidayOT],
+                    ['Reg Day OT',    detail.employee_submitted_hours.regularDayOT],
+                    ['Non-Reg Hrs OT', detail.employee_submitted_hours.regularDayOTAfter9PM],
+                    ['Holiday OT',    detail.employee_submitted_hours.publicHolidayOT],
                   ].map(([label, val]) => (
                     <div key={String(label)} className="rounded-lg border border-line bg-surface-overlay px-3 py-2">
                       <p className="text-[10px] text-content-muted">{label}</p>
@@ -243,12 +243,16 @@ export function MyRequestsPage() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 flex items-center justify-between rounded-lg bg-surface-overlay px-3 py-2 text-xs">
-                  <span className="text-content-secondary">Total OT Approved</span>
-                  <span className="font-bold text-content-primary">{detail.totalOTApproved} hrs</span>
-                  <span className="text-content-secondary">Time in Lieu</span>
-                  <span className="font-semibold text-content-primary">{detail.timeInLieu} hrs</span>
+                <div className="mt-2 flex items-center rounded-lg bg-surface-overlay px-3 py-2 text-xs">
+                  <span className="text-content-secondary">Total Submitted</span>
+                  <span className="ml-2 font-bold text-content-primary">{detail.employee_submitted_hours.total} hrs</span>
                 </div>
+                {detail.l1_approved_hours && detail.l1_approved_hours.total !== detail.employee_submitted_hours.total && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-warning/8 border border-warning/20 px-3 py-2 text-xs">
+                    <span className="text-content-muted">L1 adjusted to</span>
+                    <span className="font-bold text-warning">{detail.l1_approved_hours.total} hrs</span>
+                  </div>
+                )}
               </div>
             </div>
 
