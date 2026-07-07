@@ -1,0 +1,713 @@
+<title>Overtime App — API Reference</title>
+<style>
+  :root {
+    --bg:        #080e18;
+    --bg2:       #0d1520;
+    --surface:   #111927;
+    --raised:    #16202f;
+    --border:    #1c2d40;
+    --border2:   #243444;
+    --text:      #b8cfe0;
+    --heading:   #e2edf7;
+    --muted:     #4e6678;
+    --accent:    #0ea5e9;
+    --accent-lo: rgba(14,165,233,.12);
+    --get:       #22c55e;
+    --get-lo:    rgba(34,197,94,.14);
+    --post:      #f97316;
+    --post-lo:   rgba(249,115,22,.14);
+    --patch:     #a78bfa;
+    --patch-lo:  rgba(167,139,250,.14);
+    --radius:    8px;
+    --mono:      "SF Mono","Fira Code","Cascadia Code",ui-monospace,monospace;
+    --sans:      system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:#eef3f9; --bg2:#e4ecf4; --surface:#ffffff; --raised:#f5f8fc;
+      --border:#c8d6e4; --border2:#b0c4d8; --text:#2a3c50; --heading:#0c1c2c;
+      --muted:#7090a8; --accent:#0284c7; --accent-lo:rgba(2,132,199,.10);
+      --get:#16a34a; --get-lo:rgba(22,163,74,.12);
+      --post:#ea6c00; --post-lo:rgba(234,108,0,.12);
+      --patch:#7c3aed; --patch-lo:rgba(124,58,237,.12);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#eef3f9; --bg2:#e4ecf4; --surface:#ffffff; --raised:#f5f8fc;
+    --border:#c8d6e4; --border2:#b0c4d8; --text:#2a3c50; --heading:#0c1c2c;
+    --muted:#7090a8; --accent:#0284c7; --accent-lo:rgba(2,132,199,.10);
+    --get:#16a34a; --get-lo:rgba(22,163,74,.12);
+    --post:#ea6c00; --post-lo:rgba(234,108,0,.12);
+    --patch:#7c3aed; --patch-lo:rgba(124,58,237,.12);
+  }
+  :root[data-theme="dark"] {
+    --bg:#080e18; --bg2:#0d1520; --surface:#111927; --raised:#16202f;
+    --border:#1c2d40; --border2:#243444; --text:#b8cfe0; --heading:#e2edf7;
+    --muted:#4e6678; --accent:#0ea5e9; --accent-lo:rgba(14,165,233,.12);
+    --get:#22c55e; --get-lo:rgba(34,197,94,.14);
+    --post:#f97316; --post-lo:rgba(249,115,22,.14);
+    --patch:#a78bfa; --patch-lo:rgba(167,139,250,.14);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.65;font-size:14px;-webkit-font-smoothing:antialiased}
+
+  .page-header{position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .header-left{display:flex;align-items:center;gap:12px}
+  .logo-mark{width:28px;height:28px;background:var(--accent);border-radius:6px;display:grid;place-items:center;flex-shrink:0}
+  .logo-mark svg{width:16px;height:16px;color:#fff}
+  .site-title{font-size:13px;font-weight:600;color:var(--heading);letter-spacing:.01em}
+  .site-sub{font-size:11px;color:var(--muted);border-left:1px solid var(--border2);padding-left:12px;margin-left:4px}
+  .header-right{display:flex;align-items:center;gap:10px}
+  .ep-count{font-size:11px;font-weight:600;color:var(--muted)}
+  .theme-btn{background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;padding:5px 10px;font-size:12px;display:flex;align-items:center;gap:5px;font-family:var(--sans);transition:border-color .15s,color .15s}
+  .theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .theme-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .main{max-width:940px;margin:0 auto;padding:40px 24px 80px}
+
+  .intro{margin-bottom:36px}
+  .intro h1{font-size:22px;font-weight:700;color:var(--heading);text-wrap:balance;margin-bottom:8px}
+  .intro p{max-width:62ch;font-size:13.5px;line-height:1.7;color:var(--text)}
+  .intro p+p{margin-top:5px}
+  .base-url{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--accent)}
+  .base-url span{color:var(--muted);font-size:11px}
+
+  .quick-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:36px}
+  .quick-nav a{font-size:11px;font-weight:600;color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:20px;padding:4px 12px;letter-spacing:.05em;text-transform:uppercase;transition:border-color .15s,color .15s}
+  .quick-nav a:hover{color:var(--accent);border-color:var(--accent)}
+
+  .section{margin-bottom:44px}
+  .section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+  .section-header h2{font-size:12px;font-weight:700;color:var(--heading);letter-spacing:.09em;text-transform:uppercase}
+  .role-tag{font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-lo);border:1px solid rgba(14,165,233,.25);border-radius:4px;padding:1px 7px;letter-spacing:.04em;text-transform:uppercase}
+  .s-count{font-size:11px;color:var(--muted);margin-left:auto}
+
+  .endpoint{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:7px;transition:border-color .15s}
+  .endpoint:hover{border-color:var(--border2)}
+
+  summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 16px;user-select:none}
+  summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  summary::-webkit-details-marker{display:none}
+  details[open] summary{border-bottom:1px solid var(--border)}
+
+  .method{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.07em;border-radius:4px;padding:3px 7px;flex-shrink:0;width:52px;text-align:center}
+  .m-get  {color:var(--get);  background:var(--get-lo);  border:1px solid rgba(34,197,94,.3)}
+  .m-post {color:var(--post); background:var(--post-lo); border:1px solid rgba(249,115,22,.3)}
+  .m-patch{color:var(--patch);background:var(--patch-lo);border:1px solid rgba(167,139,250,.3)}
+
+  .ep-path{font-family:var(--mono);font-size:12.5px;color:var(--heading);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ep-path .p{color:var(--accent)}
+  .ep-desc{font-size:12px;color:var(--muted);flex-shrink:0;max-width:240px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ep-arr{flex-shrink:0;width:14px;height:14px;color:var(--muted);transition:transform .2s}
+  details[open] .ep-arr{transform:rotate(90deg)}
+
+  .ep-body{padding:16px;display:grid;gap:14px}
+  .ep-summary{font-size:13px;color:var(--text);line-height:1.65;max-width:68ch}
+
+  .ep-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:580px){.ep-grid{grid-template-columns:1fr}}
+
+  .sbox{background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .slabel{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+  .sbody{padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.75;color:var(--text);overflow-x:auto;white-space:pre}
+  .sbody::-webkit-scrollbar{height:3px}
+  .sbody::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+  .k{color:var(--accent)}
+  .t{color:var(--muted)}
+  .cm{color:var(--muted);font-style:italic}
+
+  .st{font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;letter-spacing:.06em}
+  .s200{background:var(--get-lo);color:var(--get);border:1px solid rgba(34,197,94,.25)}
+  .s201{background:var(--post-lo);color:var(--post);border:1px solid rgba(249,115,22,.25)}
+  .s204{background:var(--patch-lo);color:var(--patch);border:1px solid rgba(167,139,250,.25)}
+
+  .note{font-size:11.5px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;line-height:1.55}
+  .note::before{content:"↳";flex-shrink:0;color:var(--border2);margin-top:1px}
+
+  .auth-strip{background:var(--accent-lo);border:1px solid rgba(14,165,233,.25);border-radius:6px;padding:10px 14px;font-size:12.5px;color:var(--text);margin-bottom:30px;display:flex;align-items:center;gap:10px;line-height:1.5}
+  .auth-strip strong{color:var(--heading)}
+  .ic{font-family:var(--mono);font-size:11px;color:var(--accent);background:var(--bg2);padding:1px 6px;border-radius:3px}
+</style>
+
+<header class="page-header">
+  <div class="header-left">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h12"/></svg>
+    </div>
+    <span class="site-title">Overtime Management</span>
+    <span class="site-sub">API Reference</span>
+  </div>
+  <div class="header-right">
+    <span class="ep-count">20 endpoints</span>
+    <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      Theme
+    </button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="intro">
+    <h1>API Reference — Etihad Rail Overtime App</h1>
+    <p>All endpoints required to replace the current mock data layer with a live backend. Each endpoint maps to a function in <span class="ic">dataService.ts</span> or a Redux action in <span class="ic">otSlice.ts</span>.</p>
+    <p>Set <span class="ic">USE_MOCK = false</span> in <span class="ic">dataService.ts</span> and fill each <span class="ic">// TODO: API</span> branch to go live.</p>
+    <div class="base-url"><span>Base URL</span>https://api.etihadrail-ot.ae/v1</div>
+  </div>
+
+  <div class="auth-strip">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    All endpoints except <strong>POST /auth/login</strong> require <span class="ic">Authorization: Bearer &lt;token&gt;</span> in the request header.
+  </div>
+
+  <nav class="quick-nav" aria-label="Jump to section">
+    <a href="#auth">Auth</a>
+    <a href="#users">Users</a>
+    <a href="#employee">Employee</a>
+    <a href="#l1">L1 Manager</a>
+    <a href="#l2">L2 HoD</a>
+    <a href="#hr">HR</a>
+    <a href="#attendance">Attendance</a>
+    <a href="#shifts">Shifts</a>
+  </nav>
+
+  <!-- AUTH -->
+  <section class="section" id="auth">
+    <div class="section-header">
+      <h2>Authentication</h2>
+      <span class="s-count">2 endpoints</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-post">POST</span>
+        <span class="ep-path">/auth/login</span>
+        <span class="ep-desc">Authenticate user, return token</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Validates username, password, and role. Role must match the account's configured role — an employee cannot log in as a manager. Returns the authenticated user profile and a bearer token.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">username</span>  <span class="t">string</span>
+<span class="k">password</span>  <span class="t">string</span>
+<span class="k">role</span>      <span class="t">enum</span>    <span class="cm">// Employee | Manager | Hr</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="k">token</span>  <span class="t">string</span>   <span class="cm">// JWT bearer token</span>
+<span class="k">user</span>   <span class="t">object</span>
+  <span class="k">id</span>            <span class="t">string</span>
+  <span class="k">displayName</span>   <span class="t">string</span>
+  <span class="k">email</span>         <span class="t">string</span>
+  <span class="k">role</span>          <span class="t">enum</span>
+  <span class="k">managerLevel</span>  <span class="t">string?</span>  <span class="cm">// "L1" | "L2"</span>
+  <span class="k">jobTitle</span>      <span class="t">string</span>
+  <span class="k">entity</span>        <span class="t">string</span>
+  <span class="k">department</span>    <span class="t">string</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-post">POST</span>
+        <span class="ep-path">/auth/logout</span>
+        <span class="ep-desc">Invalidate session token</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Invalidates the bearer token server-side. The client discards the token from local state on a successful response.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="cm">// None — token read from Authorization header</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s204">204</span></div>
+            <div class="sbody"><span class="cm">// No content</span></div></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- USERS -->
+  <section class="section" id="users">
+    <div class="section-header">
+      <h2>Users</h2>
+      <span class="s-count">2 endpoints</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/users/<span class="p">{userId}</span></span>
+        <span class="ep-desc">Get a user's profile</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns the public profile of a user by ID. Used to resolve manager names and employee grades without re-fetching the full directory.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Path Params</div>
+            <div class="sbody"><span class="k">userId</span>  <span class="t">string</span>  <span class="cm">// e.g. "EMP-1001"</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="k">id</span>           <span class="t">string</span>
+<span class="k">displayName</span>  <span class="t">string</span>
+<span class="k">email</span>        <span class="t">string</span>
+<span class="k">role</span>         <span class="t">enum</span>
+<span class="k">jobTitle</span>     <span class="t">string</span>
+<span class="k">entity</span>       <span class="t">string</span>
+<span class="k">department</span>   <span class="t">string</span>
+<span class="k">managerId</span>    <span class="t">string?</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/users/<span class="p">{managerId}</span>/direct-reports</span>
+        <span class="ep-desc">List direct reports for a manager</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns all employees whose <span class="ic">managerId</span> matches the given manager. Used by the Shift Plan page to build the team roster, and by employee attendance lookup.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Path Params</div>
+            <div class="sbody"><span class="k">managerId</span>  <span class="t">string</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">AuthenticatedUser[]</span>  <span class="cm">// array of profiles</span></div></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- EMPLOYEE OT -->
+  <section class="section" id="employee">
+    <div class="section-header">
+      <h2>Overtime — Employee</h2>
+      <span class="role-tag">Employee</span>
+      <span class="s-count">2 endpoints</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/overtime/employee/<span class="p">{empId}</span></span>
+        <span class="ep-desc">Employee's own OT submissions</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns all overtime records submitted by the given employee for the requested month. Used in both the "Overtime Requests" calendar page and the "My Requests" history page. Returns all statuses — the UI filters by tab.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>   <span class="cm">// e.g. 2026</span>
+<span class="k">month</span>  <span class="t">number</span>   <span class="cm">// 1–12</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-post">POST</span>
+        <span class="ep-path">/overtime</span>
+        <span class="ep-desc">Submit a new OT request</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Employee submits an overtime request for a specific date. Server sets <span class="ic">employee_submit_status = 'Submitted'</span> and <span class="ic">l1_approval_status = 'Pending'</span>. Duplicate submissions for the same employee + date must be rejected with <span class="ic">409 Conflict</span>.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">empId</span>        <span class="t">string</span>
+<span class="k">date</span>         <span class="t">string</span>   <span class="cm">// "DD Mon YYYY"</span>
+<span class="k">clockIn</span>      <span class="t">string</span>   <span class="cm">// "HH:MM"</span>
+<span class="k">clockOut</span>     <span class="t">string</span>
+<span class="k">reason</span>       <span class="t">string</span>
+<span class="k">preApproved</span>  <span class="t">boolean</span>
+<span class="k">employee_submitted_hours</span>
+  <span class="k">regularDayOT</span>          <span class="t">number</span>
+  <span class="k">regularDayOTAfter9PM</span>  <span class="t">number</span>
+  <span class="k">publicHolidayOT</span>       <span class="t">number</span>
+  <span class="k">total</span>                 <span class="t">number</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s201">201</span></div>
+            <div class="sbody"><span class="t">OTRecord</span>  <span class="cm">// full record as stored</span></div></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- L1 MANAGER -->
+  <section class="section" id="l1">
+    <div class="section-header">
+      <h2>Overtime — L1 Line Manager</h2>
+      <span class="role-tag">L1 Manager</span>
+      <span class="s-count">5 endpoints</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/overtime/manager/<span class="p">{managerId}</span></span>
+        <span class="ep-desc">Team OT records for L1 manager</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns all overtime records from the manager's direct reports for the requested period. Includes Pending, Approved, and Rejected records so the manager can review the full history for the month.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span>  <span class="cm">// 1–12</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-patch">PATCH</span>
+        <span class="ep-path">/overtime/l1/approve-bulk</span>
+        <span class="ep-desc">Bulk approve multiple OT records</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Approves all specified records using submitted hours as approved hours. Records whose <span class="ic">l2_approval_status</span> is null are automatically advanced to <span class="ic">'Pending'</span> so they appear in the HoD queue.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">recordKeys</span>    <span class="t">string[]</span>  <span class="cm">// "empId|date"</span>
+<span class="k">l1ManagerName</span> <span class="t">string</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span>  <span class="cm">// updated records</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-patch">PATCH</span>
+        <span class="ep-path">/overtime/l1/reject-bulk</span>
+        <span class="ep-desc">Bulk reject multiple OT records</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Rejects all specified records with a shared comment stored in <span class="ic">l1_comments</span>. Clears <span class="ic">l2_approval_status</span> to null — rejected records do not proceed to HoD.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">recordKeys</span>  <span class="t">string[]</span>  <span class="cm">// "empId|date"</span>
+<span class="k">comment</span>     <span class="t">string</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-patch">PATCH</span>
+        <span class="ep-path">/overtime/<span class="p">{empId}</span>/<span class="p">{date}</span>/l1/approve</span>
+        <span class="ep-desc">Approve single with custom hours</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Approves a single record and allows the L1 manager to override the hours (e.g. reducing 5h submitted to 3h approved). The adjusted hours go into <span class="ic">l1_approved_hours</span>, preserved separately from <span class="ic">employee_submitted_hours</span>.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">regularDayOT</span>          <span class="t">number</span>
+<span class="k">regularDayOTAfter9PM</span>  <span class="t">number</span>
+<span class="k">publicHolidayOT</span>       <span class="t">number</span>
+<span class="k">totalOTApproved</span>       <span class="t">number</span>
+<span class="k">l1ManagerName</span>         <span class="t">string</span>
+<span class="k">l1_comments</span>           <span class="t">string</span>  <span class="cm">// optional note</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-patch">PATCH</span>
+        <span class="ep-path">/overtime/<span class="p">{empId}</span>/<span class="p">{date}</span>/l1/reject</span>
+        <span class="ep-desc">Reject single with comment</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Rejects a single record. <span class="ic">l1_comments</span> is required and must be specific enough for the employee to understand the decision. L2 status is reset to null.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">l1_comments</span>           <span class="t">string</span>  <span class="cm">// required</span>
+<span class="k">regularDayOT</span>          <span class="t">number</span>
+<span class="k">regularDayOTAfter9PM</span>  <span class="t">number</span>
+<span class="k">publicHolidayOT</span>       <span class="t">number</span>
+<span class="k">totalOTApproved</span>       <span class="t">number</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord</span></div></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- L2 HOD -->
+  <section class="section" id="l2">
+    <div class="section-header">
+      <h2>Overtime — L2 Head of Department</h2>
+      <span class="role-tag">L2 HoD</span>
+      <span class="s-count">3 endpoints</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/overtime/hod/<span class="p">{hodId}</span></span>
+        <span class="ep-desc">Records awaiting or reviewed by HoD</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns OT records for all employees under the HoD's department that have been approved by L1 (<span class="ic">l1_approval_status = 'Approved'</span>). Includes both Pending and already-actioned L2 records so the HoD can see the full picture for the period.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span>  <span class="cm">// 1–12</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-patch">PATCH</span>
+        <span class="ep-path">/overtime/l2/approve-bulk</span>
+        <span class="ep-desc">Bulk approve by HoD</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Final approval stage. Records approved here become visible in the HR payroll export. Sets <span class="ic">l2_approval_status = 'Approved'</span> and records the HoD's name in <span class="ic">l2ManagerName</span>.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">recordKeys</span>    <span class="t">string[]</span>  <span class="cm">// "empId|date"</span>
+<span class="k">l2ManagerName</span> <span class="t">string</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-patch">PATCH</span>
+        <span class="ep-path">/overtime/l2/reject-bulk</span>
+        <span class="ep-desc">Bulk reject by HoD</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">HoD rejects records with an optional comment stored in <span class="ic">l2_comments</span>. Rejected records are not included in the HR payroll export.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Request Body</div>
+            <div class="sbody"><span class="k">recordKeys</span>  <span class="t">string[]</span>  <span class="cm">// "empId|date"</span>
+<span class="k">comment</span>     <span class="t">string?</span>  <span class="cm">// optional</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span></div></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- HR -->
+  <section class="section" id="hr">
+    <div class="section-header">
+      <h2>Overtime — HR</h2>
+      <span class="role-tag">HR</span>
+      <span class="s-count">2 endpoints</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/overtime/hr</span>
+        <span class="ep-desc">Fully approved records for payroll</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns only records where both <span class="ic">l1_approval_status</span> and <span class="ic">l2_approval_status</span> are <span class="ic">'Approved'</span>. Supports optional filtering by entity and department. Used by both the HR Approvals page and the payroll export.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>        <span class="t">number</span>
+<span class="k">month</span>       <span class="t">number</span>   <span class="cm">// 1–12</span>
+<span class="k">entity</span>      <span class="t">string?</span>  <span class="cm">// filter by entity</span>
+<span class="k">department</span>  <span class="t">string?</span>  <span class="cm">// filter by dept</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">OTRecord[]</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/overtime/hr/export</span>
+        <span class="ep-desc">Download payroll CSV</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns a CSV file of all fully-approved OT records for the period, with calculated pay columns. The current implementation generates this client-side from the <span class="ic">/overtime/hr</span> response — the server endpoint is an alternative to offload the calculation.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="cm">Content-Type: text/csv
+Content-Disposition: attachment;
+  filename="overtime-payroll-{month}-{year}.csv"</span></div></div>
+        </div>
+        <p class="note">CSV columns: Emp ID, Name, Grade, Date, Reg OT Hrs, Non-Reg OT Hrs, Holiday OT Hrs, Total OT Hrs, L1 Approver, L2 Approver, Reg OT Pay (AED), Non-Reg OT Pay (AED), Holiday OT Pay (AED), Total OT Pay (AED).</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ATTENDANCE -->
+  <section class="section" id="attendance">
+    <div class="section-header">
+      <h2>Attendance</h2>
+      <span class="role-tag">Employee</span>
+      <span class="role-tag">L1 Manager</span>
+      <span class="s-count">1 endpoint</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/attendance/<span class="p">{empId}</span></span>
+        <span class="ep-desc">Monthly attendance records</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns a day-by-day attendance log for the requested month. Each record includes the day's status, clock-in/out times, total hours, and a flag indicating whether an approved or pending OT record exists for that day.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span>  <span class="cm">// 1–12</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">AttendanceRecord[]</span>
+  <span class="k">date</span>        <span class="t">string</span>
+  <span class="k">day</span>         <span class="t">number</span>
+  <span class="k">dayOfWeek</span>   <span class="t">string</span>
+  <span class="k">status</span>      <span class="t">enum</span>   <span class="cm">// Present|Weekend|Leave|Holiday</span>
+  <span class="k">clockIn</span>     <span class="t">string?</span>
+  <span class="k">clockOut</span>    <span class="t">string?</span>
+  <span class="k">totalHours</span>  <span class="t">number?</span>
+  <span class="k">hasOT</span>       <span class="t">boolean?</span>
+  <span class="k">otStatus</span>    <span class="t">string?</span></div></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- SHIFTS -->
+  <section class="section" id="shifts">
+    <div class="section-header">
+      <h2>Shifts &amp; Leave</h2>
+      <span class="role-tag">Employee</span>
+      <span class="role-tag">L1 Manager</span>
+      <span class="s-count">4 endpoints</span>
+    </div>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/shifts/<span class="p">{empId}</span>/details</span>
+        <span class="ep-desc">Monthly shift + OT schedule</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns a day-by-day breakdown of shift times and OT for the month. Workday records include shift start/end, duration, OT hours, OT start/end times, and total expected hours. Weekend records are returned with <span class="ic">isWorkday: false</span> and no time fields.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="t">ShiftRecord[]</span>
+  <span class="k">date</span>                <span class="t">string</span>
+  <span class="k">isWorkday</span>           <span class="t">boolean</span>
+  <span class="k">shiftStart</span>          <span class="t">string?</span>
+  <span class="k">shiftEnd</span>            <span class="t">string?</span>
+  <span class="k">shiftDurationHrs</span>    <span class="t">number?</span>
+  <span class="k">otHours</span>             <span class="t">number?</span>
+  <span class="k">otStatus</span>            <span class="t">string?</span>
+  <span class="k">otStartTime</span>         <span class="t">string?</span>
+  <span class="k">otEndTime</span>           <span class="t">string?</span>
+  <span class="k">totalExpectedHours</span>  <span class="t">number?</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/shifts/<span class="p">{empId}</span>/info</span>
+        <span class="ep-desc">Shift window for a period</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns the employee's fixed shift window (start and end time) for the given month. Used when rendering the attendance calendar to show what "normal" hours look like for an employee vs their actual clock-in/out.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="k">startTime</span>  <span class="t">string</span>  <span class="cm">// "HH:MM"</span>
+<span class="k">endTime</span>    <span class="t">string</span>  <span class="cm">// "HH:MM"</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/shifts/team/<span class="p">{managerId}</span></span>
+        <span class="ep-desc">Full team shift plan for manager</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns the full month shift plan for all of the manager's direct reports, keyed by employee ID. Used by the Shift Plan page so the L1 manager can view and record OT hours for the entire team on one screen.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="cm">// keyed by empId</span>
+<span class="t">Record&lt;string, ShiftRecord[]&gt;</span></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="endpoint">
+      <summary>
+        <span class="method m-get">GET</span>
+        <span class="ep-path">/leave/<span class="p">{empId}</span></span>
+        <span class="ep-desc">Employee leave days for a month</span>
+        <svg class="ep-arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </summary>
+      <div class="ep-body">
+        <p class="ep-summary">Returns which calendar days the employee is on approved leave. Used to mark leave days on the attendance calendar and to prevent the employee from submitting OT requests on leave days.</p>
+        <div class="ep-grid">
+          <div class="sbox"><div class="slabel">Query Params</div>
+            <div class="sbody"><span class="k">year</span>   <span class="t">number</span>
+<span class="k">month</span>  <span class="t">number</span></div></div>
+          <div class="sbox"><div class="slabel">Response <span class="st s200">200</span></div>
+            <div class="sbody"><span class="k">leaveDays</span>  <span class="t">number[]</span>  <span class="cm">// day-of-month e.g. [3, 17]</span></div></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<script>
+  function toggleTheme() {
+    var root = document.documentElement;
+    var cur = root.getAttribute('data-theme');
+    if (!cur) { cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  }
+</script>

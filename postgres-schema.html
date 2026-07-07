@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overtime App — PostgreSQL Schema</title>
+<style>
+/* ── Tokens ───────────────────────────────────────────────────────────────── */
+:root {
+  --bg:        #08100e;
+  --bg2:       #0c1612;
+  --surface:   #101f19;
+  --raised:    #152a21;
+  --border:    #1a3328;
+  --border2:   #224436;
+  --text:      #b0d4c0;
+  --heading:   #ddf0e8;
+  --muted:     #4a7060;
+  --accent:    #22c55e;
+  --accent-lo: rgba(34,197,94,.10);
+  --amber:     #f59e0b;
+  --amber-lo:  rgba(245,158,11,.12);
+  --blue:      #60a5fa;
+  --blue-lo:   rgba(96,165,250,.12);
+  --red:       #f87171;
+  --red-lo:    rgba(248,113,113,.12);
+  --purple:    #c084fc;
+  --purple-lo: rgba(192,132,252,.12);
+  --teal:      #2dd4bf;
+  --teal-lo:   rgba(45,212,191,.12);
+  --radius:    8px;
+  --mono: "SF Mono","Fira Code","Cascadia Code",ui-monospace,monospace;
+  --sans: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+@media(prefers-color-scheme:light){:root{
+  --bg:#f0faf4; --bg2:#e4f2ea; --surface:#ffffff; --raised:#f5fbf7;
+  --border:#c0dece; --border2:#9ac8b2; --text:#1e4030; --heading:#091c12;
+  --muted:#5a8870; --accent:#16a34a; --accent-lo:rgba(22,163,74,.10);
+  --amber:#d97706; --amber-lo:rgba(217,119,6,.12);
+  --blue:#2563eb; --blue-lo:rgba(37,99,235,.10);
+  --red:#dc2626; --red-lo:rgba(220,38,38,.10);
+  --purple:#9333ea; --purple-lo:rgba(147,51,234,.10);
+  --teal:#0d9488; --teal-lo:rgba(13,148,136,.10);
+}}
+:root[data-theme="light"]{
+  --bg:#f0faf4; --bg2:#e4f2ea; --surface:#ffffff; --raised:#f5fbf7;
+  --border:#c0dece; --border2:#9ac8b2; --text:#1e4030; --heading:#091c12;
+  --muted:#5a8870; --accent:#16a34a; --accent-lo:rgba(22,163,74,.10);
+  --amber:#d97706; --amber-lo:rgba(217,119,6,.12);
+  --blue:#2563eb; --blue-lo:rgba(37,99,235,.10);
+  --red:#dc2626; --red-lo:rgba(220,38,38,.10);
+  --purple:#9333ea; --purple-lo:rgba(147,51,234,.10);
+  --teal:#0d9488; --teal-lo:rgba(13,148,136,.10);
+}
+:root[data-theme="dark"]{
+  --bg:#08100e; --bg2:#0c1612; --surface:#101f19; --raised:#152a21;
+  --border:#1a3328; --border2:#224436; --text:#b0d4c0; --heading:#ddf0e8;
+  --muted:#4a7060; --accent:#22c55e; --accent-lo:rgba(34,197,94,.10);
+  --amber:#f59e0b; --amber-lo:rgba(245,158,11,.12);
+  --blue:#60a5fa; --blue-lo:rgba(96,165,250,.12);
+  --red:#f87171; --red-lo:rgba(248,113,113,.12);
+  --purple:#c084fc; --purple-lo:rgba(192,132,252,.12);
+  --teal:#2dd4bf; --teal-lo:rgba(45,212,191,.12);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;-webkit-font-smoothing:antialiased}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.hdr{position:sticky;top:0;z-index:100;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.hdr-l{display:flex;align-items:center;gap:12px}
+.logo{width:28px;height:28px;background:var(--accent);border-radius:6px;display:grid;place-items:center}
+.logo svg{width:16px;height:16px;color:#fff}
+.site-name{font-size:13px;font-weight:600;color:var(--heading)}
+.site-sub{font-size:11px;color:var(--muted);border-left:1px solid var(--border2);padding-left:12px;margin-left:4px}
+.theme-btn{background:var(--surface);border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;padding:5px 10px;font-size:12px;display:flex;align-items:center;gap:5px;font-family:var(--sans);transition:border-color .15s,color .15s}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Main layout ─────────────────────────────────────────────────────────── */
+.main{max-width:1100px;margin:0 auto;padding:36px 24px 80px}
+
+.intro{margin-bottom:32px}
+.intro h1{font-size:21px;font-weight:700;color:var(--heading);text-wrap:balance;margin-bottom:8px}
+.intro p{max-width:66ch;font-size:13.5px;line-height:1.7}
+.intro p+p{margin-top:4px}
+
+/* ── Quick nav ───────────────────────────────────────────────────────────── */
+.qnav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:36px}
+.qnav a{font-size:11px;font-weight:600;color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:20px;padding:4px 12px;letter-spacing:.05em;text-transform:uppercase;transition:border-color .15s,color .15s}
+.qnav a:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ── Section headers ─────────────────────────────────────────────────────── */
+.sec-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sec-label span{color:var(--heading)}
+
+/* ── ENUMs ───────────────────────────────────────────────────────────────── */
+.enum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:40px}
+.enum-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.enum-head{padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.enum-kw{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--purple);background:var(--purple-lo);border:1px solid rgba(192,132,252,.25);border-radius:4px;padding:2px 6px;letter-spacing:.04em}
+.enum-name{font-family:var(--mono);font-size:12px;color:var(--heading);font-weight:600}
+.enum-vals{padding:8px 14px;display:flex;flex-direction:column;gap:4px}
+.enum-val{font-family:var(--mono);font-size:11.5px;color:var(--amber)}
+.enum-val::before{content:"'";color:var(--muted)}
+.enum-val::after{content:"'";color:var(--muted)}
+
+/* ── Table grid ──────────────────────────────────────────────────────────── */
+.tbl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px;margin-bottom:40px}
+@media(max-width:540px){.tbl-grid{grid-template-columns:1fr}}
+
+/* ── Table card ──────────────────────────────────────────────────────────── */
+.tbl{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.tbl-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.tbl-icon{width:22px;height:22px;border-radius:5px;display:grid;place-items:center;flex-shrink:0}
+.tbl-name{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--heading)}
+.tbl-rows{font-size:10.5px;color:var(--muted);margin-left:auto}
+
+/* ── Column list ─────────────────────────────────────────────────────────── */
+.col-list{border-bottom:1px solid var(--border)}
+.col-row{display:grid;grid-template-columns:180px 1fr auto;align-items:start;gap:8px;padding:7px 16px;border-bottom:1px solid var(--border);font-size:12px}
+.col-row:last-child{border-bottom:none}
+.col-row.col-pk{background:rgba(245,158,11,.04)}
+.col-name{font-family:var(--mono);color:var(--heading);font-size:11.5px;display:flex;align-items:center;gap:5px}
+.col-type{font-family:var(--mono);font-size:11px;color:var(--teal)}
+.col-badges{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.badge{font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;letter-spacing:.05em;white-space:nowrap}
+.b-pk {color:var(--amber); background:var(--amber-lo); border:1px solid rgba(245,158,11,.3)}
+.b-fk {color:var(--blue);  background:var(--blue-lo);  border:1px solid rgba(96,165,250,.3)}
+.b-nn {color:var(--accent); background:var(--accent-lo); border:1px solid rgba(34,197,94,.3)}
+.b-uq {color:var(--purple); background:var(--purple-lo); border:1px solid rgba(192,132,252,.3)}
+.b-idx{color:var(--teal);   background:var(--teal-lo);   border:1px solid rgba(45,212,191,.3)}
+.b-def{color:var(--muted);  background:var(--bg2);       border:1px solid var(--border2)}
+
+/* ── Table footer: constraints + indexes ─────────────────────────────────── */
+.tbl-footer{padding:10px 16px;display:flex;flex-direction:column;gap:5px}
+.constraint{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5}
+.constraint .kw{color:var(--purple)}
+.constraint .ref{color:var(--blue)}
+.constraint .col{color:var(--teal)}
+
+/* ── SQL block (full DDL) ────────────────────────────────────────────────── */
+.sql-wrap{margin-bottom:40px}
+.sql-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.sql-head{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sql-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.copy-btn{font-family:var(--sans);background:var(--surface);border:1px solid var(--border2);border-radius:5px;color:var(--muted);cursor:pointer;padding:3px 10px;font-size:11px;transition:border-color .15s,color .15s}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sql-body{padding:16px;font-family:var(--mono);font-size:12px;line-height:1.75;overflow-x:auto;white-space:pre}
+.sql-body::-webkit-scrollbar{height:4px}
+.sql-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+/* SQL syntax highlight */
+.kw {color:var(--blue)}
+.ty {color:var(--teal)}
+.cm {color:var(--muted);font-style:italic}
+.s  {color:var(--amber)}
+.fn {color:var(--purple)}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-l">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
+    </div>
+    <span class="site-name">Overtime Management</span>
+    <span class="site-sub">PostgreSQL Schema</span>
+  </div>
+  <button class="theme-btn" onclick="toggleTheme()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    Theme
+  </button>
+</header>
+
+<main class="main">
+
+  <div class="intro">
+    <h1>PostgreSQL Schema — Etihad Rail Overtime App</h1>
+    <p>7 tables derived from the current TypeScript data model in <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">mockData.ts</code> and <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">dataService.ts</code>. OT hours are stored flat (not as nested JSON) for query performance.</p>
+    <p>Employee IDs remain string-keyed (e.g. <code style="font-family:var(--mono);font-size:12px;color:var(--teal)">EMP-1001</code>) to match the existing mock data format and avoid a migration step.</p>
+  </div>
+
+  <nav class="qnav">
+    <a href="#enums">Enums</a>
+    <a href="#employees">employees</a>
+    <a href="#grades">grade_pay_scales</a>
+    <a href="#ot">ot_records</a>
+    <a href="#shifts">shift_plans</a>
+    <a href="#attendance">attendance_records</a>
+    <a href="#leave">leave_records</a>
+    <a href="#sessions">sessions</a>
+    <a href="#ddl">Full DDL</a>
+  </nav>
+
+  <!-- ── ENUMs ─────────────────────────────────────────────────────────────── -->
+  <div id="enums">
+    <div class="sec-label"><span>Custom Types</span> — 3 enums</div>
+    <div class="enum-grid">
+      <div class="enum-card">
+        <div class="enum-head">
+          <span class="enum-kw">ENUM</span>
+          <span class="enum-name">user_role</span>
+        </div>
+        <div class="enum-vals">
+          <span class="enum-val">EMPLOYEE</span>
+          <span class="enum-val">MANAGER</span>
+          <span class="enum-val">HR</span>
+        </div>
+      </div>
+      <div class="enum-card">
+        <div class="enum-head">
+          <span class="enum-kw">ENUM</span>
+          <span class="enum-name">manager_level</span>
+        </div>
+        <div class="enum-vals">
+          <span class="enum-val">L1</span>
+          <span class="enum-val">L2</span>
+        </div>
+      </div>
+      <div class="enum-card">
+        <div class="enum-head">
+          <span class="enum-kw">ENUM</span>
+          <span class="enum-name">approval_status</span>
+        </div>
+        <div class="enum-vals">
+          <span class="enum-val">Pending</span>
+          <span class="enum-val">Approved</span>
+          <span class="enum-val">Rejected</span>
+        </div>
+      </div>
+      <div class="enum-card">
+        <div class="enum-head">
+          <span class="enum-kw">ENUM</span>
+          <span class="enum-name">attendance_status</span>
+        </div>
+        <div class="enum-vals">
+          <span class="enum-val">Present</span>
+          <span class="enum-val">Weekend</span>
+          <span class="enum-val">Leave</span>
+          <span class="enum-val">Holiday</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TABLE CARDS ────────────────────────────────────────────────────────── -->
+  <div class="sec-label"><span>Tables</span> — 7 tables</div>
+  <div class="tbl-grid">
+
+    <!-- employees -->
+    <div class="tbl" id="employees">
+      <div class="tbl-head">
+        <div class="tbl-icon" style="background:var(--amber-lo)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <span class="tbl-name">employees</span>
+        <span class="tbl-rows">~11 rows (seed) · grows with org</span>
+      </div>
+      <div class="col-list">
+        <div class="col-row col-pk">
+          <span class="col-name">id</span>
+          <span class="col-type">VARCHAR(20)</span>
+          <div class="col-badges"><span class="badge b-pk">PK</span><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">username</span>
+          <span class="col-type">VARCHAR(100)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span><span class="badge b-uq">UNIQUE</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">password_hash</span>
+          <span class="col-type">VARCHAR(255)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">display_name</span>
+          <span class="col-type">VARCHAR(150)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">email</span>
+          <span class="col-type">VARCHAR(255)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span><span class="badge b-uq">UNIQUE</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">role</span>
+          <span class="col-type">user_role</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">manager_level</span>
+          <span class="col-type">manager_level</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">job_title</span>
+          <span class="col-type">VARCHAR(150)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">entity</span>
+          <span class="col-type">VARCHAR(100)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">department</span>
+          <span class="col-type">VARCHAR(100)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">grade</span>
+          <span class="col-type">VARCHAR(5)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span><span class="badge b-fk">FK → grade_pay_scales</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">manager_id</span>
+          <span class="col-type">VARCHAR(20)</span>
+          <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">created_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">updated_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+        </div>
+      </div>
+      <div class="tbl-footer">
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">employees(role)</span></span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">employees(manager_id)</span></span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">employees(department)</span></span>
+      </div>
+    </div>
+
+    <!-- grade_pay_scales -->
+    <div class="tbl" id="grades">
+      <div class="tbl-head">
+        <div class="tbl-icon" style="background:var(--teal-lo)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <span class="tbl-name">grade_pay_scales</span>
+        <span class="tbl-rows">12 rows (G1–G12, static)</span>
+      </div>
+      <div class="col-list">
+        <div class="col-row col-pk">
+          <span class="col-name">grade</span>
+          <span class="col-type">VARCHAR(5)</span>
+          <div class="col-badges"><span class="badge b-pk">PK</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">gross_monthly_pay</span>
+          <span class="col-type">NUMERIC(12,2)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">updated_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+        </div>
+      </div>
+      <div class="tbl-footer">
+        <span class="constraint" style="color:var(--muted);font-style:italic;font-family:var(--mono);font-size:11px">-- G1=12000 AED … G12=1000 AED. Pay calculation is derived server-side.</span>
+      </div>
+    </div>
+
+    <!-- ot_records -->
+    <div class="tbl" id="ot" style="grid-column: span 2">
+      <div class="tbl-head">
+        <div class="tbl-icon" style="background:var(--accent-lo)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <span class="tbl-name">ot_records</span>
+        <span class="tbl-rows">Core table · 1 row per employee per OT date · grows monthly</span>
+      </div>
+      <div class="col-list" style="display:grid;grid-template-columns:1fr 1fr">
+        <div style="border-right:1px solid var(--border)">
+          <div class="col-row col-pk" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">id</span>
+            <span class="col-type">BIGSERIAL</span>
+            <div class="col-badges"><span class="badge b-pk">PK</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">emp_id</span>
+            <span class="col-type">VARCHAR(20)</span>
+            <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-nn">NOT NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">manager_id</span>
+            <span class="col-type">VARCHAR(20)</span>
+            <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-nn">NOT NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">date</span>
+            <span class="col-type">DATE</span>
+            <div class="col-badges"><span class="badge b-nn">NOT NULL</span><span class="badge b-idx">IDX</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">clock_in</span>
+            <span class="col-type">TIME</span>
+            <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">clock_out</span>
+            <span class="col-type">TIME</span>
+            <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">pre_approved</span>
+            <span class="col-type">BOOLEAN</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT FALSE</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">reason</span>
+            <span class="col-type">TEXT</span>
+            <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto;background:rgba(34,197,94,.04)">
+            <span class="col-name" style="color:var(--accent)">— Submitted Hours —</span>
+            <span class="col-type"></span><div></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">sub_regular_ot</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT 0</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">sub_regular_after9pm</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT 0</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">sub_holiday_ot</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT 0</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">sub_total_ot</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">submitted_at</span>
+            <span class="col-type">TIMESTAMPTZ</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">created_at</span>
+            <span class="col-type">TIMESTAMPTZ</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:160px 1fr auto">
+            <span class="col-name">updated_at</span>
+            <span class="col-type">TIMESTAMPTZ</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto;background:rgba(96,165,250,.04)">
+            <span class="col-name" style="color:var(--blue)">— L1 Approval —</span>
+            <span class="col-type"></span><div></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_status</span>
+            <span class="col-type">approval_status</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT 'Pending'</span><span class="badge b-idx">IDX</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_regular_ot</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-def">NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_regular_after9pm</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-def">NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_holiday_ot</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-def">NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_total_ot</span>
+            <span class="col-type">NUMERIC(5,2)</span>
+            <div class="col-badges"><span class="badge b-def">NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_comments</span>
+            <span class="col-type">TEXT</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT ''</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_approved_by</span>
+            <span class="col-type">VARCHAR(20)</span>
+            <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-def">NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l1_actioned_at</span>
+            <span class="col-type">TIMESTAMPTZ</span>
+            <div class="col-badges"><span class="badge b-def">NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto;background:rgba(192,132,252,.04)">
+            <span class="col-name" style="color:var(--purple)">— L2 Approval —</span>
+            <span class="col-type"></span><div></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l2_status</span>
+            <span class="col-type">approval_status</span>
+            <div class="col-badges"><span class="badge b-def">NULL</span><span class="badge b-idx">IDX</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l2_comments</span>
+            <span class="col-type">TEXT</span>
+            <div class="col-badges"><span class="badge b-def">DEFAULT ''</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l2_approved_by</span>
+            <span class="col-type">VARCHAR(20)</span>
+            <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-def">NULL</span></div>
+          </div>
+          <div class="col-row" style="grid-template-columns:190px 1fr auto">
+            <span class="col-name">l2_actioned_at</span>
+            <span class="col-type">TIMESTAMPTZ</span>
+            <div class="col-badges"><span class="badge b-def">NULL</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="tbl-footer">
+        <span class="constraint"><span class="kw">UNIQUE</span> (<span class="col">emp_id, date</span>)  <span class="cm">-- one OT record per employee per day</span></span>
+        <span class="constraint"><span class="kw">CHECK</span> (<span class="col">sub_total_ot</span> = <span class="col">sub_regular_ot</span> + <span class="col">sub_regular_after9pm</span> + <span class="col">sub_holiday_ot</span>)</span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">ot_records(emp_id, date)</span></span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">ot_records(manager_id, date)</span></span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">ot_records(l1_status, l2_status)</span>  <span class="cm">-- HR payroll filter</span></span>
+      </div>
+    </div>
+
+    <!-- shift_plans -->
+    <div class="tbl" id="shifts">
+      <div class="tbl-head">
+        <div class="tbl-icon" style="background:var(--blue-lo)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span class="tbl-name">shift_plans</span>
+        <span class="tbl-rows">~30 rows/employee/month</span>
+      </div>
+      <div class="col-list">
+        <div class="col-row col-pk">
+          <span class="col-name">id</span>
+          <span class="col-type">BIGSERIAL</span>
+          <div class="col-badges"><span class="badge b-pk">PK</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">emp_id</span>
+          <span class="col-type">VARCHAR(20)</span>
+          <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">date</span>
+          <span class="col-type">DATE</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">is_workday</span>
+          <span class="col-type">BOOLEAN</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">is_public_holiday</span>
+          <span class="col-type">BOOLEAN</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT FALSE</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">shift_start</span>
+          <span class="col-type">TIME</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">shift_end</span>
+          <span class="col-type">TIME</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">ot_start</span>
+          <span class="col-type">TIME</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">ot_end</span>
+          <span class="col-type">TIME</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">ot_hours</span>
+          <span class="col-type">NUMERIC(5,2)</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">created_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+        </div>
+      </div>
+      <div class="tbl-footer">
+        <span class="constraint"><span class="kw">UNIQUE</span> (<span class="col">emp_id, date</span>)</span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">shift_plans(emp_id, date)</span></span>
+      </div>
+    </div>
+
+    <!-- attendance_records -->
+    <div class="tbl" id="attendance">
+      <div class="tbl-head">
+        <div class="tbl-icon" style="background:var(--accent-lo)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <span class="tbl-name">attendance_records</span>
+        <span class="tbl-rows">~30 rows/employee/month</span>
+      </div>
+      <div class="col-list">
+        <div class="col-row col-pk">
+          <span class="col-name">id</span>
+          <span class="col-type">BIGSERIAL</span>
+          <div class="col-badges"><span class="badge b-pk">PK</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">emp_id</span>
+          <span class="col-type">VARCHAR(20)</span>
+          <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">date</span>
+          <span class="col-type">DATE</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">status</span>
+          <span class="col-type">attendance_status</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">clock_in</span>
+          <span class="col-type">TIME</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">clock_out</span>
+          <span class="col-type">TIME</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">total_hours</span>
+          <span class="col-type">NUMERIC(5,2)</span>
+          <div class="col-badges"><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">ot_record_id</span>
+          <span class="col-type">BIGINT</span>
+          <div class="col-badges"><span class="badge b-fk">FK → ot_records</span><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">created_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+        </div>
+      </div>
+      <div class="tbl-footer">
+        <span class="constraint"><span class="kw">UNIQUE</span> (<span class="col">emp_id, date</span>)</span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">attendance_records(emp_id, date)</span></span>
+      </div>
+    </div>
+
+    <!-- leave_records -->
+    <div class="tbl" id="leave">
+      <div class="tbl-head">
+        <div class="tbl-icon" style="background:var(--red-lo)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <span class="tbl-name">leave_records</span>
+        <span class="tbl-rows">Grows with leave requests</span>
+      </div>
+      <div class="col-list">
+        <div class="col-row col-pk">
+          <span class="col-name">id</span>
+          <span class="col-type">BIGSERIAL</span>
+          <div class="col-badges"><span class="badge b-pk">PK</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">emp_id</span>
+          <span class="col-type">VARCHAR(20)</span>
+          <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">start_date</span>
+          <span class="col-type">DATE</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">end_date</span>
+          <span class="col-type">DATE</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">leave_type</span>
+          <span class="col-type">VARCHAR(60)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">approved_by</span>
+          <span class="col-type">VARCHAR(20)</span>
+          <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-def">NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">created_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+        </div>
+      </div>
+      <div class="tbl-footer">
+        <span class="constraint"><span class="kw">CHECK</span> (<span class="col">end_date</span> &gt;= <span class="col">start_date</span>)</span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">leave_records(emp_id, start_date, end_date)</span></span>
+      </div>
+    </div>
+
+    <!-- sessions -->
+    <div class="tbl" id="sessions">
+      <div class="tbl-head">
+        <div class="tbl-icon" style="background:var(--purple-lo)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <span class="tbl-name">sessions</span>
+        <span class="tbl-rows">1 row per active login session</span>
+      </div>
+      <div class="col-list">
+        <div class="col-row col-pk">
+          <span class="col-name">id</span>
+          <span class="col-type">UUID</span>
+          <div class="col-badges"><span class="badge b-pk">PK</span><span class="badge b-def">DEFAULT gen_random_uuid()</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">emp_id</span>
+          <span class="col-type">VARCHAR(20)</span>
+          <div class="col-badges"><span class="badge b-fk">FK → employees</span><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">token_hash</span>
+          <span class="col-type">VARCHAR(255)</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span><span class="badge b-uq">UNIQUE</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">expires_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-nn">NOT NULL</span></div>
+        </div>
+        <div class="col-row">
+          <span class="col-name">created_at</span>
+          <span class="col-type">TIMESTAMPTZ</span>
+          <div class="col-badges"><span class="badge b-def">DEFAULT NOW()</span></div>
+        </div>
+      </div>
+      <div class="tbl-footer">
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">sessions(token_hash)</span>  <span class="cm">-- auth lookup</span></span>
+        <span class="constraint"><span class="kw">INDEX</span> ON <span class="col">sessions(expires_at)</span>  <span class="cm">-- expired session cleanup</span></span>
+      </div>
+    </div>
+
+  </div><!-- /.tbl-grid -->
+
+  <!-- ── Full DDL ────────────────────────────────────────────────────────────── -->
+  <div class="sql-wrap" id="ddl">
+    <div class="sec-label"><span>Full DDL</span> — copy-paste ready</div>
+    <div class="sql-box">
+      <div class="sql-head">
+        <span class="sql-title">postgres-schema.sql</span>
+        <button class="copy-btn" onclick="copySQL()">Copy SQL</button>
+      </div>
+      <div class="sql-body" id="sql-content"><span class="cm">-- ============================================================
+-- Etihad Rail Overtime Management — PostgreSQL Schema
+-- Generated: 2026-07-07
+-- ============================================================</span>
+
+<span class="cm">-- ── Extensions ──────────────────────────────────────────────</span>
+<span class="kw">CREATE EXTENSION IF NOT EXISTS</span> <span class="s">"pgcrypto"</span>;
+
+<span class="cm">-- ── Enums ────────────────────────────────────────────────────</span>
+<span class="kw">CREATE TYPE</span> user_role <span class="kw">AS ENUM</span> (<span class="s">'EMPLOYEE'</span>, <span class="s">'MANAGER'</span>, <span class="s">'HR'</span>);
+<span class="kw">CREATE TYPE</span> manager_level <span class="kw">AS ENUM</span> (<span class="s">'L1'</span>, <span class="s">'L2'</span>);
+<span class="kw">CREATE TYPE</span> approval_status <span class="kw">AS ENUM</span> (<span class="s">'Pending'</span>, <span class="s">'Approved'</span>, <span class="s">'Rejected'</span>);
+<span class="kw">CREATE TYPE</span> attendance_status <span class="kw">AS ENUM</span> (<span class="s">'Present'</span>, <span class="s">'Weekend'</span>, <span class="s">'Leave'</span>, <span class="s">'Holiday'</span>);
+
+<span class="cm">-- ── grade_pay_scales ─────────────────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> grade_pay_scales (
+  grade               <span class="ty">VARCHAR(5)</span>      <span class="kw">PRIMARY KEY</span>,
+  gross_monthly_pay   <span class="ty">NUMERIC(12,2)</span>   <span class="kw">NOT NULL</span>,
+  updated_at          <span class="ty">TIMESTAMPTZ</span>     <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>()
+);
+
+<span class="cm">-- Seed: G1 = 12 000 AED, G2 = 11 000 … G12 = 1 000</span>
+<span class="kw">INSERT INTO</span> grade_pay_scales (grade, gross_monthly_pay) <span class="kw">VALUES</span>
+  (<span class="s">'G1'</span>, 12000), (<span class="s">'G2'</span>, 11000), (<span class="s">'G3'</span>, 10000), (<span class="s">'G4'</span>, 9000),
+  (<span class="s">'G5'</span>,  8000), (<span class="s">'G6'</span>,  7000), (<span class="s">'G7'</span>,  6000), (<span class="s">'G8'</span>, 5000),
+  (<span class="s">'G9'</span>,  4000), (<span class="s">'G10'</span>, 3000), (<span class="s">'G11'</span>, 2000), (<span class="s">'G12'</span>, 1000);
+
+<span class="cm">-- ── employees ────────────────────────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> employees (
+  id             <span class="ty">VARCHAR(20)</span>     <span class="kw">PRIMARY KEY</span>,
+  username       <span class="ty">VARCHAR(100)</span>    <span class="kw">NOT NULL UNIQUE</span>,
+  password_hash  <span class="ty">VARCHAR(255)</span>    <span class="kw">NOT NULL</span>,
+  display_name   <span class="ty">VARCHAR(150)</span>    <span class="kw">NOT NULL</span>,
+  email          <span class="ty">VARCHAR(255)</span>    <span class="kw">NOT NULL UNIQUE</span>,
+  role           <span class="ty">user_role</span>       <span class="kw">NOT NULL</span>,
+  manager_level  <span class="ty">manager_level</span>,
+  job_title      <span class="ty">VARCHAR(150)</span>    <span class="kw">NOT NULL</span>,
+  entity         <span class="ty">VARCHAR(100)</span>    <span class="kw">NOT NULL</span>,
+  department     <span class="ty">VARCHAR(100)</span>    <span class="kw">NOT NULL</span>,
+  grade          <span class="ty">VARCHAR(5)</span>      <span class="kw">NOT NULL REFERENCES</span> grade_pay_scales(grade),
+  manager_id     <span class="ty">VARCHAR(20)</span>     <span class="kw">REFERENCES</span> employees(id) <span class="kw">ON DELETE SET NULL</span>,
+  created_at     <span class="ty">TIMESTAMPTZ</span>     <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+  updated_at     <span class="ty">TIMESTAMPTZ</span>     <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>()
+);
+
+<span class="kw">CREATE INDEX</span> idx_employees_role       <span class="kw">ON</span> employees(role);
+<span class="kw">CREATE INDEX</span> idx_employees_manager_id  <span class="kw">ON</span> employees(manager_id);
+<span class="kw">CREATE INDEX</span> idx_employees_department  <span class="kw">ON</span> employees(department);
+
+<span class="cm">-- ── ot_records ───────────────────────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> ot_records (
+  id                   <span class="ty">BIGSERIAL</span>       <span class="kw">PRIMARY KEY</span>,
+
+  <span class="cm">-- Who & when</span>
+  emp_id               <span class="ty">VARCHAR(20)</span>     <span class="kw">NOT NULL REFERENCES</span> employees(id),
+  manager_id           <span class="ty">VARCHAR(20)</span>     <span class="kw">NOT NULL REFERENCES</span> employees(id),
+  date                 <span class="ty">DATE</span>            <span class="kw">NOT NULL</span>,
+  clock_in             <span class="ty">TIME</span>            <span class="kw">NOT NULL</span>,
+  clock_out            <span class="ty">TIME</span>            <span class="kw">NOT NULL</span>,
+  pre_approved         <span class="ty">BOOLEAN</span>         <span class="kw">NOT NULL DEFAULT</span> <span class="kw">FALSE</span>,
+  reason               <span class="ty">TEXT</span>            <span class="kw">NOT NULL</span>,
+
+  <span class="cm">-- Employee submitted hours</span>
+  sub_regular_ot       <span class="ty">NUMERIC(5,2)</span>    <span class="kw">NOT NULL DEFAULT</span> 0,
+  sub_regular_after9pm <span class="ty">NUMERIC(5,2)</span>    <span class="kw">NOT NULL DEFAULT</span> 0,
+  sub_holiday_ot       <span class="ty">NUMERIC(5,2)</span>    <span class="kw">NOT NULL DEFAULT</span> 0,
+  sub_total_ot         <span class="ty">NUMERIC(5,2)</span>    <span class="kw">NOT NULL</span>,
+  submitted_at         <span class="ty">TIMESTAMPTZ</span>     <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+
+  <span class="cm">-- L1 approval</span>
+  l1_status            <span class="ty">approval_status</span> <span class="kw">NOT NULL DEFAULT</span> <span class="s">'Pending'</span>,
+  l1_regular_ot        <span class="ty">NUMERIC(5,2)</span>,
+  l1_regular_after9pm  <span class="ty">NUMERIC(5,2)</span>,
+  l1_holiday_ot        <span class="ty">NUMERIC(5,2)</span>,
+  l1_total_ot          <span class="ty">NUMERIC(5,2)</span>,
+  l1_comments          <span class="ty">TEXT</span>            <span class="kw">NOT NULL DEFAULT</span> <span class="s">''</span>,
+  l1_approved_by       <span class="ty">VARCHAR(20)</span>     <span class="kw">REFERENCES</span> employees(id),
+  l1_actioned_at       <span class="ty">TIMESTAMPTZ</span>,
+
+  <span class="cm">-- L2 approval</span>
+  l2_status            <span class="ty">approval_status</span>,
+  l2_comments          <span class="ty">TEXT</span>            <span class="kw">NOT NULL DEFAULT</span> <span class="s">''</span>,
+  l2_approved_by       <span class="ty">VARCHAR(20)</span>     <span class="kw">REFERENCES</span> employees(id),
+  l2_actioned_at       <span class="ty">TIMESTAMPTZ</span>,
+
+  created_at           <span class="ty">TIMESTAMPTZ</span>     <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+  updated_at           <span class="ty">TIMESTAMPTZ</span>     <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+
+  <span class="kw">UNIQUE</span> (emp_id, date),
+  <span class="kw">CONSTRAINT</span> chk_sub_total <span class="kw">CHECK</span> (
+    sub_total_ot = sub_regular_ot + sub_regular_after9pm + sub_holiday_ot
+  )
+);
+
+<span class="kw">CREATE INDEX</span> idx_ot_emp_date       <span class="kw">ON</span> ot_records(emp_id, date);
+<span class="kw">CREATE INDEX</span> idx_ot_manager_date   <span class="kw">ON</span> ot_records(manager_id, date);
+<span class="kw">CREATE INDEX</span> idx_ot_statuses       <span class="kw">ON</span> ot_records(l1_status, l2_status);
+<span class="kw">CREATE INDEX</span> idx_ot_date           <span class="kw">ON</span> ot_records(date);
+
+<span class="cm">-- ── shift_plans ──────────────────────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> shift_plans (
+  id                <span class="ty">BIGSERIAL</span>   <span class="kw">PRIMARY KEY</span>,
+  emp_id            <span class="ty">VARCHAR(20)</span> <span class="kw">NOT NULL REFERENCES</span> employees(id),
+  date              <span class="ty">DATE</span>        <span class="kw">NOT NULL</span>,
+  is_workday        <span class="ty">BOOLEAN</span>     <span class="kw">NOT NULL</span>,
+  is_public_holiday <span class="ty">BOOLEAN</span>     <span class="kw">NOT NULL DEFAULT</span> <span class="kw">FALSE</span>,
+  shift_start       <span class="ty">TIME</span>,
+  shift_end         <span class="ty">TIME</span>,
+  ot_start          <span class="ty">TIME</span>,
+  ot_end            <span class="ty">TIME</span>,
+  ot_hours          <span class="ty">NUMERIC(5,2)</span>,
+  created_at        <span class="ty">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+
+  <span class="kw">UNIQUE</span> (emp_id, date)
+);
+
+<span class="kw">CREATE INDEX</span> idx_shift_emp_date <span class="kw">ON</span> shift_plans(emp_id, date);
+
+<span class="cm">-- ── attendance_records ───────────────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> attendance_records (
+  id            <span class="ty">BIGSERIAL</span>         <span class="kw">PRIMARY KEY</span>,
+  emp_id        <span class="ty">VARCHAR(20)</span>       <span class="kw">NOT NULL REFERENCES</span> employees(id),
+  date          <span class="ty">DATE</span>              <span class="kw">NOT NULL</span>,
+  status        <span class="ty">attendance_status</span> <span class="kw">NOT NULL</span>,
+  clock_in      <span class="ty">TIME</span>,
+  clock_out     <span class="ty">TIME</span>,
+  total_hours   <span class="ty">NUMERIC(5,2)</span>,
+  ot_record_id  <span class="ty">BIGINT</span>            <span class="kw">REFERENCES</span> ot_records(id) <span class="kw">ON DELETE SET NULL</span>,
+  created_at    <span class="ty">TIMESTAMPTZ</span>       <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+
+  <span class="kw">UNIQUE</span> (emp_id, date)
+);
+
+<span class="kw">CREATE INDEX</span> idx_att_emp_date <span class="kw">ON</span> attendance_records(emp_id, date);
+
+<span class="cm">-- ── leave_records ────────────────────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> leave_records (
+  id           <span class="ty">BIGSERIAL</span>   <span class="kw">PRIMARY KEY</span>,
+  emp_id       <span class="ty">VARCHAR(20)</span> <span class="kw">NOT NULL REFERENCES</span> employees(id),
+  start_date   <span class="ty">DATE</span>        <span class="kw">NOT NULL</span>,
+  end_date     <span class="ty">DATE</span>        <span class="kw">NOT NULL</span>,
+  leave_type   <span class="ty">VARCHAR(60)</span> <span class="kw">NOT NULL</span>,
+  approved_by  <span class="ty">VARCHAR(20)</span> <span class="kw">REFERENCES</span> employees(id) <span class="kw">ON DELETE SET NULL</span>,
+  created_at   <span class="ty">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>(),
+
+  <span class="kw">CONSTRAINT</span> chk_leave_dates <span class="kw">CHECK</span> (end_date &gt;= start_date)
+);
+
+<span class="kw">CREATE INDEX</span> idx_leave_emp_dates <span class="kw">ON</span> leave_records(emp_id, start_date, end_date);
+
+<span class="cm">-- ── sessions ─────────────────────────────────────────────────</span>
+<span class="kw">CREATE TABLE</span> sessions (
+  id          <span class="ty">UUID</span>        <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">gen_random_uuid</span>(),
+  emp_id      <span class="ty">VARCHAR(20)</span> <span class="kw">NOT NULL REFERENCES</span> employees(id) <span class="kw">ON DELETE CASCADE</span>,
+  token_hash  <span class="ty">VARCHAR(255)</span> <span class="kw">NOT NULL UNIQUE</span>,
+  expires_at  <span class="ty">TIMESTAMPTZ</span> <span class="kw">NOT NULL</span>,
+  created_at  <span class="ty">TIMESTAMPTZ</span> <span class="kw">NOT NULL DEFAULT</span> <span class="fn">NOW</span>()
+);
+
+<span class="kw">CREATE INDEX</span> idx_sessions_token      <span class="kw">ON</span> sessions(token_hash);
+<span class="kw">CREATE INDEX</span> idx_sessions_expires_at <span class="kw">ON</span> sessions(expires_at);
+
+<span class="cm">-- ── Auto-update updated_at ────────────────────────────────────</span>
+<span class="kw">CREATE OR REPLACE FUNCTION</span> <span class="fn">set_updated_at</span>()
+<span class="kw">RETURNS TRIGGER AS</span> $$
+<span class="kw">BEGIN</span>
+  NEW.updated_at = <span class="fn">NOW</span>();
+  <span class="kw">RETURN</span> NEW;
+<span class="kw">END</span>;
+$$ <span class="kw">LANGUAGE</span> plpgsql;
+
+<span class="kw">CREATE TRIGGER</span> trg_employees_updated_at
+  <span class="kw">BEFORE UPDATE ON</span> employees
+  <span class="kw">FOR EACH ROW EXECUTE FUNCTION</span> <span class="fn">set_updated_at</span>();
+
+<span class="kw">CREATE TRIGGER</span> trg_ot_records_updated_at
+  <span class="kw">BEFORE UPDATE ON</span> ot_records
+  <span class="kw">FOR EACH ROW EXECUTE FUNCTION</span> <span class="fn">set_updated_at</span>();
+</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function toggleTheme() {
+  var root = document.documentElement;
+  var cur = root.getAttribute('data-theme');
+  if (!cur) cur = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+}
+
+function copySQL() {
+  var el = document.getElementById('sql-content');
+  var text = el.innerText;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy SQL'; }, 2000);
+  });
+}
+</script>
+</body>
+</html>
