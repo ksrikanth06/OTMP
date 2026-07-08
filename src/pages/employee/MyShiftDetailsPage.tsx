@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getShiftDetails, MONTHS } from '@/services/dataService';
 import type { ShiftRecord } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
@@ -121,10 +121,16 @@ export function MyShiftDetailsPage() {
   const [month, setMonth] = useState(todayMonth);
   const [changeModal, setChangeModal] = useState<{ day: number; date: string } | null>(null);
   const [changeReason, setChangeReason] = useState('');
+  const [shiftData, setShiftData] = useState<ShiftRecord[]>([]);
 
   if (!user) return null;
 
-  const records: ShiftRecord[] = getShiftDetails(user.id, year, month).map((r) => {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    getShiftDetails(user.id, year, month).then(setShiftData);
+  }, [user.id, year, month]);
+
+  const records: ShiftRecord[] = shiftData.map((r) => {
     if (!r.isWorkday) return r;
     const a = shiftOT.find(
       (x) => x.empId === user.id && x.year === year && x.month === month && x.day === r.day,

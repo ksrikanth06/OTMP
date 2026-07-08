@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { getDirectReports } from '@/config/credentials';
+import { useDirectReports } from '@/hooks/useDirectReports';
 import { Avatar } from '@/components/common/Avatar';
 import { DIRECTORY } from '@/services/mockData';
 
@@ -7,7 +7,7 @@ export function TeamMembersPage() {
   const navigate       = useNavigate();
   const { managerId }  = useParams<{ managerId: string }>();
   const manager        = DIRECTORY.find((d) => d.id === managerId);
-  const members        = managerId ? getDirectReports(managerId) : [];
+  const members        = useDirectReports(managerId);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 animate-fade-up">

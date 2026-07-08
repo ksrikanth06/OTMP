@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Modal } from '@/components/common/Modal';
 import {
-  getDirectReports,
   getShiftDetails,
   MONTHS,
   HALF_HOUR_OPTIONS,
 } from '@/services/dataService';
+import { useDirectReports } from '@/hooks/useDirectReports';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setOTAssignment, removeOTAssignment } from '@/store/slices/shiftSlice';
 import { Avatar } from '@/components/common/Avatar';
@@ -103,7 +103,7 @@ export function EmployeeShiftPlanPage() {
   const navigate   = useNavigate();
   const { empId }  = useParams<{ empId: string }>();
   const user       = useAppSelector((state) => state.auth.user);
-  const team       = user ? getDirectReports(user.id) : [];
+  const team       = useDirectReports(user?.id);
   const employee   = team.find((m) => m.id === empId) ?? null;
 
   const today      = new Date();
@@ -115,6 +115,11 @@ export function EmployeeShiftPlanPage() {
 
   const [year, setYear]   = useState(todayYear);
   const [month, setMonth] = useState(todayMonth);
+  const [shiftData, setShiftData] = useState<Awaited<ReturnType<typeof getShiftDetails>>>([]);
+
+  useEffect(() => {
+    if (employee) getShiftDetails(employee.id, year, month).then(setShiftData);
+  }, [employee?.id, year, month]);
   const [popup, setPopup]   = useState<PopupState | null>(null);
   const [otError, setOtError] = useState('');
 
@@ -129,7 +134,7 @@ export function EmployeeShiftPlanPage() {
   }, [allAssignments, empId, year, month]);
 
   const years    = Array.from({ length: 3 }, (_, i) => todayYear - 1 + i);
-  const workdays = employee ? getShiftDetails(employee.id, year, month).filter((r) => r.isWorkday) : [];
+  const workdays = shiftData.filter((r) => r.isWorkday);
 
   const rowKey = (day: number) => `${empId}-${year}-${month}-${day}`;
 
@@ -196,6 +201,7 @@ export function EmployeeShiftPlanPage() {
     'rounded-lg border border-line bg-surface-sunken px-3 py-2 text-sm text-content-primary focus:border-brand focus:outline-none';
 
   if (!employee) {
+    if (team.length === 0) return null;
     return (
       <div className="flex flex-col items-center justify-center py-24 text-content-muted">
         <p className="text-sm">Employee not found.</p>

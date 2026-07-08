@@ -30,8 +30,9 @@ export function MyRequestsPage() {
     setRecords(null);
   };
 
-  const handleFetch = () => {
-    setRecords(getEmployeeOvertimeRequests(user.id, year, month));
+  const handleFetch = async () => {
+    const data = await getEmployeeOvertimeRequests(user.id, year, month);
+    setRecords(data);
     setActiveTab('all');
   };
 

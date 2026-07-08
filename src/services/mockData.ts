@@ -14,6 +14,7 @@ import type { AuthenticatedUser } from '@/types';
 // ─── User directory ───────────────────────────────────────────────────────────
 
 export interface DirectoryRecord extends AuthenticatedUser {
+  username: string;
   password: string;
   /** For employees: their L1 Line Manager's ID. For L1 managers: their L2 HoD's ID. */
   managerId?: string;

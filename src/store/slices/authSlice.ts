@@ -2,6 +2,9 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { authenticate } from '@/config/credentials';
 import { appText } from '@/config/constants';
 import { AuthenticatedUser, LoginCredentials, LoginStatus } from '@/types';
+import { authApi } from '@/services/api';
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 
 const STORAGE_KEY = 'overtime-portal.auth';
 
@@ -47,21 +50,28 @@ const initialState: AuthState = {
   error: null,
 };
 
-/**
- * Simulates an async SSO/LDAP round-trip. Resolves with the user on success
- * and rejects with a user-facing message on failure.
- */
 export const login = createAsyncThunk<
   AuthenticatedUser,
   LoginCredentials,
   { rejectValue: string }
 >('auth/login', async (credentials, { rejectWithValue }) => {
-  await new Promise((resolve) => setTimeout(resolve, 450));
-  const user = authenticate(credentials);
-  if (!user) {
+  if (USE_MOCK) {
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    const user = authenticate(credentials);
+    if (!user) return rejectWithValue(appText.login.invalidCredentials);
+    return user;
+  }
+  try {
+    return await authApi.login(credentials);
+  } catch {
     return rejectWithValue(appText.login.invalidCredentials);
   }
-  return user;
+});
+
+export const logoutAsync = createAsyncThunk('auth/logoutAsync', async () => {
+  if (!USE_MOCK) {
+    try { await authApi.logout(); } catch { /* ignore — token cleared client-side anyway */ }
+  }
 });
 
 const authSlice = createSlice({
@@ -94,6 +104,12 @@ const authSlice = createSlice({
         state.user = null;
         state.status = 'error';
         state.error = action.payload ?? appText.login.invalidCredentials;
+      })
+      .addCase(logoutAsync.fulfilled, (state) => {
+        state.user = null;
+        state.status = 'idle';
+        state.error = null;
+        persistUser(null);
       });
   },
 });

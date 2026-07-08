@@ -8,7 +8,8 @@ export enum UserRole {
 
 export interface AuthenticatedUser {
   id: string;
-  username: string;
+  /** Only present for mock-mode accounts; the real API does not return this. */
+  username?: string;
   displayName: string;
   email: string;
   role: UserRole;
@@ -17,6 +18,7 @@ export interface AuthenticatedUser {
   jobTitle: string;
   entity: string;
   department: string;
+  managerId?: string;
 }
 
 export interface LoginCredentials {

@@ -3,13 +3,11 @@
  *
  * SWITCHING TO A LIVE API
  * -----------------------
- * 1. Set USE_MOCK = false (or: const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false').
- * 2. Fill in the `// TODO: API` branches with fetch() / axios calls.
- * 3. Mark the function async where the caller can await it.
- *    Fetch-button handlers in OvertimeApprovalsPage and HrApprovalsPage
- *    already follow this pattern.
- * 4. For synchronous callers (auth slice, ShiftPlanPage) wrap with useEffect
- *    or convert to Redux Thunks.
+ * Set VITE_USE_MOCK=false in your .env file. All async functions will then
+ * call the real API via the axios client in src/services/api/.
+ * Synchronous seed helpers (getInitialOTRecords, getInitialShiftPlan) keep
+ * returning [] / {} so Redux slices start empty; role-specific fetch thunks
+ * in otSlice.ts load the real data after login.
  */
 
 import { UserRole } from '@/types';
@@ -24,6 +22,7 @@ import {
   JULY_2026_SHIFT_PLAN,
   JULY_2026_EMP_SHIFTS,
 } from './mockData';
+import { attendanceApi, overtimeApi, shiftApi, userApi } from './api';
 
 export type { ApprovalStatus, HrStatus, ManagerStatus, OTHours, OTRecord } from './mockData';
 export { HR_ENTITIES, HR_DEPARTMENTS } from './mockData';
@@ -32,7 +31,7 @@ export interface AttendanceRecord {
   date: string;
   day: number;
   dayOfWeek: string;
-  status: 'Present' | 'Weekend' | 'Leave' | 'Holiday';
+  status: 'Present' | 'Weekend' | 'Leave' | 'Holiday' | 'Absent';
   clockIn?: string;
   clockOut?: string;
   totalHours?: number;
@@ -56,7 +55,7 @@ export const HALF_HOUR_OPTIONS = Array.from({ length: 48 }, (_, i) => {
 
 export const REGULAR_OT_END_MINS = 22 * 60; // 22:00 — end of regular-hour OT window
 
-const USE_MOCK = true;
+const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 
 // ─── Initial state seeds for Redux slices ────────────────────────────────────
 // When USE_MOCK = false, slices start empty and populate via async thunks.
@@ -110,16 +109,14 @@ export function authenticate(credentials: LoginCredentials): AuthenticatedUser |
     );
     return match ? stripSensitive(match) : null;
   }
-  // TODO: API — return await post('/auth/login', credentials);
   return null;
 }
 
-export function getDirectReports(managerId: string): AuthenticatedUser[] {
+export async function getDirectReports(managerId: string): Promise<AuthenticatedUser[]> {
   if (USE_MOCK) {
     return DIRECTORY.filter((r) => r.managerId === managerId).map(stripSensitive);
   }
-  // TODO: API — return await get(`/users/${managerId}/direct-reports`);
-  return [];
+  return userApi.getDirectReports(managerId);
 }
 
 export const demoAccounts = DIRECTORY.filter((r) => r.role !== UserRole.Employee).map(({ username, role }) => ({
@@ -137,18 +134,16 @@ export function getEmployeeGrade(empId: string): string {
 
 // ─── Manager overtime records ─────────────────────────────────────────────────
 
-export function getManagerOvertimeRecords(managerId: string, _year: number, _month: number) {
+export async function getManagerOvertimeRecords(managerId: string, year: number, month: number) {
   if (USE_MOCK) return OT_RECORDS.filter((r) => r.managerId === managerId);
-  // TODO: API — return await get(`/overtime/manager/${managerId}?year=${_year}&month=${_month}`);
-  return [];
+  return overtimeApi.getForManager(managerId, year, month);
 }
 
 // ─── HR overtime records ──────────────────────────────────────────────────────
 
-export function getHrOvertimeRecords(_year: number, _month: number) {
+export async function getHrOvertimeRecords(year: number, month: number) {
   if (USE_MOCK) return OT_RECORDS.filter((r) => r.l1_approval_status === 'Approved' && r.l2_approval_status === 'Approved');
-  // TODO: API — return await get(`/overtime/hr?year=${_year}&month=${_month}`);
-  return [];
+  return overtimeApi.getForHr(year, month);
 }
 
 /** Returns the L2 HoD's employee ID for a given L1 manager ID. */
@@ -216,8 +211,8 @@ function offsetTime(base: string, offsetMins: number): string {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-export function getEmployeeAttendance(userId: string, year: number, month: number): AttendanceRecord[] {
-  if (!USE_MOCK) return [];
+export async function getEmployeeAttendance(userId: string, year: number, month: number): Promise<AttendanceRecord[]> {
+  if (!USE_MOCK) return attendanceApi.getForEmployee(userId, year, month);
 
   const empId      = userId;
   const monthShort = MONTHS_SHORT[month - 1];
@@ -313,8 +308,8 @@ export function getEmployeeAttendance(userId: string, year: number, month: numbe
   return results;
 }
 
-export function getEmployeeOvertimeRequests(userId: string, year: number, month: number) {
-  if (!USE_MOCK) return [];
+export async function getEmployeeOvertimeRequests(userId: string, year: number, month: number) {
+  if (!USE_MOCK) return overtimeApi.getForEmployee(userId, year, month);
   const monthShort = MONTHS_SHORT[month - 1];
   return OT_RECORDS.filter((r) => {
     if (r.empId !== userId) return false;
@@ -348,8 +343,8 @@ function addHrsToTime(time: string, hours: number): string {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-export function getShiftDetails(userId: string, year: number, month: number): ShiftRecord[] {
-  if (!USE_MOCK) return [];
+export async function getShiftDetails(userId: string, year: number, month: number): Promise<ShiftRecord[]> {
+  if (!USE_MOCK) return shiftApi.getForEmployee(userId, year, month);
 
   const empId = userId;
 
@@ -452,7 +447,7 @@ export function getTeamMonthOTStore(
     null;
   if (!shiftPlan) return {};
 
-  const team  = getDirectReports(managerId);
+  const team  = DIRECTORY.filter((r) => r.managerId === managerId).map(stripSensitive);
   const store: Record<string, { otStart: string; otEnd: string; comments: string }> = {};
 
   for (const emp of team) {

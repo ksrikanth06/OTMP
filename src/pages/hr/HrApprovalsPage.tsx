@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { calcOtPay, fmtAed as fmt, MONTHS, HR_ENTITIES, HR_DEPARTMENTS } from '@/services/dataService';
 import type { OTRecord } from '@/services/dataService';
-import { useAppSelector } from '@/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { fetchHrOTRecords } from '@/store/slices/otSlice';
 import { Modal } from '@/components/common/Modal';
 
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -20,6 +21,7 @@ const formatWorked = (r: OTRecord) => {
 
 export function HrApprovalsPage() {
   const allRecords = useAppSelector((s) => s.ot.records);
+  const dispatch   = useAppDispatch();
 
   const today = new Date();
   const todayYear  = today.getFullYear();
@@ -55,6 +57,10 @@ export function HrApprovalsPage() {
     .filter((r) => !filterDepartment || r.department   === filterDepartment)
     .filter((r) => !filterManager    || r.l1ManagerName === filterManager)
     .filter((r) => r.name.toLowerCase().includes(filterName.toLowerCase().trim()));
+
+  useEffect(() => {
+    dispatch(fetchHrOTRecords({ year, month }));
+  }, [year, month]);
 
   const handleYearChange = (y: number) => {
     setYear(y);

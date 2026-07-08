@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import { getDirectReports } from '@/config/credentials';
+import { useDirectReports } from '@/hooks/useDirectReports';
 import { useAppSelector } from '@/store/hooks';
 import { Avatar } from '@/components/common/Avatar';
 
 export function MyTeamPage() {
   const navigate = useNavigate();
   const user     = useAppSelector((state) => state.auth.user);
-  const team     = user ? getDirectReports(user.id) : [];
+  const team     = useDirectReports(user?.id);
   const isL2     = user?.managerLevel === 'L2';
 
   return (

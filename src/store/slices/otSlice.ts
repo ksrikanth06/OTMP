@@ -1,17 +1,62 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import { getInitialOTRecords } from '@/services/dataService';
+import { getInitialOTRecords, getManagerOvertimeRecords, getHrOvertimeRecords } from '@/services/dataService';
 import type { OTHours, OTRecord } from '@/services/dataService';
+import { overtimeApi } from '@/services/api';
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
+
+// ── Role-specific fetch thunks (defined before the slice so extraReducers can reference them) ──
+
+export const fetchManagerOTRecords = createAsyncThunk(
+  'ot/fetchManagerOTRecords',
+  (args: { managerId: string; year: number; month: number }) =>
+    getManagerOvertimeRecords(args.managerId, args.year, args.month),
+);
+
+export const fetchHodOTRecords = createAsyncThunk(
+  'ot/fetchHodOTRecords',
+  (args: { hodId: string; year: number; month: number }) =>
+    USE_MOCK
+      ? getManagerOvertimeRecords(args.hodId, args.year, args.month)
+      : overtimeApi.getForHod(args.hodId, args.year, args.month),
+);
+
+export const fetchHrOTRecords = createAsyncThunk(
+  'ot/fetchHrOTRecords',
+  (args: { year: number; month: number }) =>
+    getHrOvertimeRecords(args.year, args.month),
+);
+
+// ── Key helper ───────────────────────────────────────────────────────────────
 
 export const mkOTKey = (empId: string, date: string) => `${empId}|${date}`;
 
+// ── State ────────────────────────────────────────────────────────────────────
+
 interface OTState {
   records: OTRecord[];
+  loading: boolean;
+  error: string | null;
 }
 
 const initialState: OTState = {
   records: getInitialOTRecords(),
+  loading: false,
+  error: null,
 };
+
+// ── Upsert helper (used in extraReducers) ────────────────────────────────────
+
+function upsertRecords(records: OTRecord[], fetched: OTRecord[]): void {
+  for (const r of fetched) {
+    const idx = records.findIndex((x) => x.empId === r.empId && x.date === r.date);
+    if (idx >= 0) records[idx] = r;
+    else records.push(r);
+  }
+}
+
+// ── Slice ─────────────────────────────────────────────────────────────────────
 
 const otSlice = createSlice({
   name: 'ot',
@@ -116,6 +161,25 @@ const otSlice = createSlice({
       const exists = state.records.some((r) => r.empId === empId && r.date === date);
       if (!exists) state.records.push(action.payload);
     },
+  },
+
+  extraReducers: (builder) => {
+    const thunks = [fetchManagerOTRecords, fetchHodOTRecords, fetchHrOTRecords] as const;
+    for (const thunk of thunks) {
+      builder
+        .addCase(thunk.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(thunk.fulfilled, (state, action) => {
+          state.loading = false;
+          upsertRecords(state.records, action.payload);
+        })
+        .addCase(thunk.rejected, (state, action) => {
+          state.loading = false;
+          state.error = action.error.message ?? 'Failed to load records';
+        });
+    }
   },
 });
 

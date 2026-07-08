@@ -1,9 +1,8 @@
-import { useState } from 'react';
-import { getDirectReports } from '@/config/credentials';
+import { useState, useEffect } from 'react';
+import { useDirectReports } from '@/hooks/useDirectReports';
 import { getEmployeeAttendance, MONTHS } from '@/services/dataService';
 import type { AttendanceRecord } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
-import type { AuthenticatedUser } from '@/types';
 
 // ─── Status badge ────────────────────────────────────────────────────────────
 
@@ -13,6 +12,7 @@ function StatusBadge({ status }: { status: AttendanceRecord['status'] }) {
     Weekend: { label: 'Week Off',       cls: 'bg-violet-500/15 text-violet-600' },
     Leave:   { label: 'Leave',          cls: 'bg-brand/10 text-brand' },
     Holiday: { label: 'Public Holiday', cls: 'bg-amber-500/15 text-amber-600' },
+    Absent:  { label: 'Absent',         cls: 'bg-content-muted/15 text-content-muted' },
   };
   const { label, cls } = map[status];
   return (
@@ -45,19 +45,28 @@ export function EmployeeAttendancePage() {
   const todayYear  = today.getFullYear();
   const todayMonth = today.getMonth() + 1;
 
-  const team: AuthenticatedUser[] = user ? getDirectReports(user.id) : [];
+  const team = useDirectReports(user?.id);
 
-  const [selectedEmpId, setSelectedEmpId] = useState<string>(team[0]?.id ?? '');
+  const [selectedEmpId, setSelectedEmpId] = useState<string>('');
   const [year,  setYear]  = useState(todayYear);
   const [month, setMonth] = useState(todayMonth);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
   const years = Array.from({ length: 5 }, (_, i) => todayYear - i);
   const maxMonth = year === todayYear ? todayMonth : 12;
   const availableMonths = MONTHS.slice(0, maxMonth);
 
-  const records: AttendanceRecord[] = selectedEmpId
-    ? getEmployeeAttendance(selectedEmpId, year, month)
-    : [];
+  useEffect(() => {
+    if (!selectedEmpId && team.length > 0) setSelectedEmpId(team[0].id);
+  }, [team, selectedEmpId]);
+
+  useEffect(() => {
+    if (selectedEmpId) {
+      getEmployeeAttendance(selectedEmpId, year, month).then(setRecords);
+    } else {
+      setRecords([]);
+    }
+  }, [selectedEmpId, year, month]);
 
   const summary = {
     present:  records.filter((r) => r.status === 'Present').length,

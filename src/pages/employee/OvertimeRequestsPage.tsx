@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   getEmployeeAttendance,
   getEmployeeManagerId,
@@ -173,6 +173,7 @@ export function OvertimeRequestsPage() {
 
   // Detail popup (for already-applied rows)
   const [detail, setDetail] = useState<OTRecord | null>(null);
+  const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
 
   if (!user) return null;
 
@@ -185,6 +186,11 @@ export function OvertimeRequestsPage() {
     setMonth((m) => Math.min(m, y === todayYear ? todayMonth : 12));
   };
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    getEmployeeAttendance(user.id, year, month).then(setAttendanceData);
+  }, [user.id, year, month]);
+
   // Applied OT records for this month (from Redux)
   const appliedOT = allRecords.filter((r) => {
     const [, mon, yr] = r.date.split(' ');
@@ -193,7 +199,7 @@ export function OvertimeRequestsPage() {
   const otByDate = new Map(appliedOT.map((r) => [r.date, r]));
 
   // OT-eligible attendance days: worked > 8.75 hrs OR already applied
-  const attendance = getEmployeeAttendance(user.id, year, month).filter(
+  const attendance = attendanceData.filter(
     (r) => (r.status === 'Present' && (r.totalHours ?? 0) > 8.75) || otByDate.has(r.date),
   );
 

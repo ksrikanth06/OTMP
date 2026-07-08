@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Avatar } from '@/components/common/Avatar';
 import { Modal } from '@/components/common/Modal';
-import { getDirectReports, getEmployeeShiftById, isEmployeeOnLeave, MONTHS, DAY_NAMES, HALF_HOUR_OPTIONS } from '@/services/dataService';
+import { getEmployeeShiftById, isEmployeeOnLeave, MONTHS, DAY_NAMES, HALF_HOUR_OPTIONS } from '@/services/dataService';
+import { useDirectReports } from '@/hooks/useDirectReports';
 import { useAppSelector } from '@/store/hooks';
 import { useAppDispatch } from '@/store/hooks';
 import { setOTAssignment, removeOTAssignment } from '@/store/slices/shiftSlice';
@@ -25,7 +26,7 @@ const toDecimal = (hhmm: string): number => {
 
 export function ShiftPlanPage() {
   const user = useAppSelector((state) => state.auth.user);
-  const team = user ? getDirectReports(user.id) : [];
+  const team = useDirectReports(user?.id);
 
   const today        = new Date();
   const todayYear    = today.getFullYear();

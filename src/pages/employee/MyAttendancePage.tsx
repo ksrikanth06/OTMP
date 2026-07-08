@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getEmployeeAttendance, MONTHS, DAY_NAMES } from '@/services/dataService';
 import type { AttendanceRecord } from '@/services/dataService';
 import { useAppSelector } from '@/store/hooks';
@@ -90,9 +90,7 @@ export function MyAttendancePage() {
 
   const [year, setYear]       = useState(todayYear);
   const [month, setMonth]     = useState(todayMonth);
-  const [records, setRecords] = useState<AttendanceRecord[] | null>(() =>
-    getEmployeeAttendance(user?.id ?? '', todayYear, todayMonth)
-  );
+  const [records, setRecords] = useState<AttendanceRecord[] | null>(null);
   const [selected, setSelected] = useState<AttendanceRecord | null>(null);
 
   if (!user) return null;
@@ -101,17 +99,20 @@ export function MyAttendancePage() {
   const maxMonth = year === todayYear ? todayMonth : 12;
   const availableMonths = MONTHS.slice(0, maxMonth);
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    getEmployeeAttendance(user.id, year, month).then(setRecords);
+  }, [user.id, year, month]);
+
   const handleYearChange = (y: number) => {
     const clampedMonth = Math.min(month, y === todayYear ? todayMonth : 12);
     setYear(y);
     setMonth(clampedMonth);
-    setRecords(getEmployeeAttendance(user.id, y, clampedMonth));
     setSelected(null);
   };
 
   const handleMonthChange = (m: number) => {
     setMonth(m);
-    setRecords(getEmployeeAttendance(user.id, year, m));
     setSelected(null);
   };
 

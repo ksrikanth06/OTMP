@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MONTHS, getHodIdForManager } from '@/services/dataService';
 import type { OTRecord } from '@/services/dataService';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
@@ -7,6 +7,7 @@ import {
   l1ApproveRecords, l1RejectRecords,
   l1ApproveSingle, l1RejectSingle, managerSaveOTHours,
   l2ApproveRecords, l2RejectRecords,
+  fetchManagerOTRecords, fetchHodOTRecords,
 } from '@/store/slices/otSlice';
 import { Modal } from '@/components/common/Modal';
 
@@ -58,6 +59,12 @@ export function OvertimeApprovalsPage() {
   const [detail, setDetail]           = useState<DetailDraft | null>(null);
   const [rejectDialog, setRejectDialog] = useState<{ mode: 'bulk' } | { mode: 'single'; draft: DetailDraft } | null>(null);
   const [rejectComment, setRejectComment] = useState('');
+
+  useEffect(() => {
+    if (!userId) return;
+    if (isL2) dispatch(fetchHodOTRecords({ hodId: userId, year, month }));
+    else dispatch(fetchManagerOTRecords({ managerId: userId, year, month }));
+  }, [userId, isL2, year, month]);
 
   // L1: filter by managerId; L2: filter by hodId
   const records = allRecords.filter((r) => {
