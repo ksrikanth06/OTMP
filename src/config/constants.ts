@@ -26,8 +26,9 @@ export const appText = {
   },
   login: {
     heading: 'Sign in to continue',
-    subheading: 'Select your role and enter your directory credentials.',
-    roleSelectorLabel: 'I am signing in as',
+    subheading: 'Select a portal and enter your directory credentials.',
+    portalSelectorLabel: 'Choose a portal',
+    roleSelectorLabel: 'Role',
     invalidCredentials:
       'Those credentials were not recognised for the selected role. Check your details and try again.',
     panelEyebrow: 'Overtime management',
@@ -61,4 +62,33 @@ export const roleDescriptions: Record<UserRole, string> = {
   [UserRole.Employee]: 'Submit and track your overtime',
   [UserRole.Manager]: 'Line Manager (L1) or Head of Department (L2) — review and approve team requests',
   [UserRole.Hr]: 'View fully-approved records and export payroll',
+};
+
+export type PortalKey = 'attendance' | 'overtime';
+
+/** The two portals presented as cards on the login screen. */
+export const portalOptions: Array<{
+  key: PortalKey;
+  title: string;
+  description: string;
+  icon: 'calendar' | 'clock';
+}> = [
+  {
+    key: 'attendance',
+    title: 'Time & Attendance',
+    description: 'View shifts, timesheets and attendance records',
+    icon: 'calendar',
+  },
+  {
+    key: 'overtime',
+    title: 'Overtime Management',
+    description: 'Submit, review and approve overtime requests',
+    icon: 'clock',
+  },
+];
+
+/** Header subtitle shown per selected portal. */
+export const portalLabels: Record<PortalKey, string> = {
+  attendance: 'Time & Attendance Portal',
+  overtime: 'Overtime Management Portal',
 };

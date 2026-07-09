@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import whiteLogo from '@/assets/white_logo.svg';
 import { Avatar } from '@/components/common/Avatar';
 import { Icon } from '@/components/common/Icon';
-import { appText, branding, roleLabels } from '@/config/constants';
+import { appText, branding, portalLabels, roleLabels } from '@/config/constants';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
 
@@ -17,6 +17,8 @@ export function TopHeader({ onToggleNav, navOpen }: TopHeaderProps) {
   const user = useAppSelector((state) => state.auth.user);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAttendanceSection = location.pathname.startsWith('/attendance');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +54,7 @@ export function TopHeader({ onToggleNav, navOpen }: TopHeaderProps) {
         </button>
         <img src={whiteLogo} alt={branding.productName} className="h-6 w-auto" />
         <span className="hidden text-sm font-semibold text-content-primary sm:block">
-          Overtime Management Portal
+          {isAttendanceSection ? portalLabels.attendance : portalLabels.overtime}
         </span>
       </div>
 

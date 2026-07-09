@@ -17,7 +17,8 @@ export interface AuthenticatedUser {
   managerLevel?: 'L1' | 'L2';
   jobTitle: string;
   entity: string;
-  department: string;
+  /** Not returned by the login endpoint; only set where the source data has it. */
+  department?: string;
   managerId?: string;
 }
 

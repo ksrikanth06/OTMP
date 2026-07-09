@@ -12,6 +12,9 @@ import { HrPayrollPage } from '@/pages/hr/HrPayrollPage';
 import { MyAttendancePage } from '@/pages/employee/MyAttendancePage';
 import { OvertimeRequestsPage } from '@/pages/employee/OvertimeRequestsPage';
 import { MyShiftDetailsPage } from '@/pages/employee/MyShiftDetailsPage';
+import { AttendanceHomePage } from '@/pages/attendance/AttendanceHomePage';
+import { AttendanceTeamPage } from '@/pages/attendance/AttendanceTeamPage';
+import { AttendanceEmployeeAttendancePage } from '@/pages/attendance/AttendanceEmployeeAttendancePage';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 
@@ -38,6 +41,13 @@ export function AppRoutes() {
           <Route path="hr-approvals" element={<HrApprovalsPage />} />
           <Route path="hr-payroll" element={<HrPayrollPage />} />
           <Route path="*" element={<HomePage />} />
+        </Route>
+
+        <Route path="/attendance" element={<DashboardLayout />}>
+          <Route index element={<AttendanceHomePage />} />
+          <Route path="team" element={<AttendanceTeamPage />} />
+          <Route path="team/:empId" element={<AttendanceEmployeeAttendancePage />} />
+          <Route path="*" element={<AttendanceHomePage />} />
         </Route>
       </Route>
 

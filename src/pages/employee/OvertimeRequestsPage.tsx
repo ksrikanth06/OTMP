@@ -235,7 +235,7 @@ export function OvertimeRequestsPage() {
       name:       user.displayName,
       grade:      getEmployeeGrade(user.id),
       entity:     user.entity,
-      department: user.department,
+      department: user.department ?? '',
       date:       applyTarget.date,
       clockIn:    applyTarget.clockIn ?? '',
       clockOut:   applyTarget.clockOut ?? '',

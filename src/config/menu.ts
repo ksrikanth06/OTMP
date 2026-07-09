@@ -38,3 +38,22 @@ export const navByRole: Record<UserRole, NavItem[]> = {
 };
 
 export const getNavForRole = (role: UserRole): NavItem[] => navByRole[role] ?? [];
+
+// ─── Time & Attendance portal nav ──────────────────────────────────────────
+
+const attendanceEmployeeNav: NavItem[] = [
+  { key: 'att-my-attendance', label: 'My Attendance', path: '/attendance', icon: 'calendar' },
+];
+
+const attendanceManagerNav: NavItem[] = [
+  { key: 'att-my-attendance', label: 'My Attendance', path: '/attendance', icon: 'calendar' },
+  { key: 'att-my-team', label: 'My Team', path: '/attendance/team', icon: 'users' },
+];
+
+export const attendanceNavByRole: Record<UserRole, NavItem[]> = {
+  [UserRole.Employee]: attendanceEmployeeNav,
+  [UserRole.Manager]: attendanceManagerNav,
+  [UserRole.Hr]: attendanceEmployeeNav,
+};
+
+export const getAttendanceNavForRole = (role: UserRole): NavItem[] => attendanceNavByRole[role] ?? [];

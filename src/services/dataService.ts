@@ -23,8 +23,10 @@ import {
   JULY_2026_EMP_SHIFTS,
 } from './mockData';
 import { attendanceApi, overtimeApi, shiftApi, userApi } from './api';
+import type { ManagerReportNode } from './api';
 
 export type { ApprovalStatus, HrStatus, ManagerStatus, OTHours, OTRecord } from './mockData';
+export type { ManagerReportNode } from './api';
 export { HR_ENTITIES, HR_DEPARTMENTS } from './mockData';
 
 export interface AttendanceRecord {
@@ -117,6 +119,12 @@ export async function getDirectReports(managerId: string): Promise<Authenticated
     return DIRECTORY.filter((r) => r.managerId === managerId).map(stripSensitive);
   }
   return userApi.getDirectReports(managerId);
+}
+
+/** Two-level (direct + indirect) report tree, used by the Time & Attendance "My Team" view. */
+export async function getManagerReports(managerId: string): Promise<ManagerReportNode[]> {
+  if (USE_MOCK) return [];
+  return attendanceApi.getManagerReports(managerId);
 }
 
 export const demoAccounts = DIRECTORY.filter((r) => r.role !== UserRole.Employee).map(({ username, role }) => ({

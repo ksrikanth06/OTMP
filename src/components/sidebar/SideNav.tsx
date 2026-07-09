@@ -1,7 +1,7 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Icon, type IconName } from '@/components/common/Icon';
 import { appText, roleDescriptions, roleLabels } from '@/config/constants';
-import { getNavForRole } from '@/config/menu';
+import { getAttendanceNavForRole, getNavForRole } from '@/config/menu';
 import { useAppSelector } from '@/store/hooks';
 
 interface SideNavProps {
@@ -13,9 +13,11 @@ interface SideNavProps {
 
 export function SideNav({ open, onNavigate }: SideNavProps) {
   const user = useAppSelector((state) => state.auth.user);
+  const location = useLocation();
   if (!user) return null;
 
-  const items = getNavForRole(user.role);
+  const isAttendanceSection = location.pathname.startsWith('/attendance');
+  const items = isAttendanceSection ? getAttendanceNavForRole(user.role) : getNavForRole(user.role);
   const isL2 = user.managerLevel === 'L2';
   const displayRole = user.managerLevel === 'L2'
     ? 'Head of Department'
@@ -73,7 +75,7 @@ export function SideNav({ open, onNavigate }: SideNavProps) {
               <li key={item.key}>
                 <NavLink
                   to={item.path}
-                  end={item.path === '/home'}
+                  end={item.path === '/home' || item.path === '/attendance'}
                   className={linkClasses}
                   onClick={onNavigate}
                 >

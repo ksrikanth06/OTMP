@@ -9,3 +9,4 @@ export { payApi } from './payApi';
 export type { LoginResponse } from './authApi';
 export type { SubmitOTPayload, L1ActionPayload, BulkApproveResponse, BulkRejectResponse } from './overtimeApi';
 export type { TeamShiftEntry, TeamShiftPlanRecord } from './shiftApi';
+export type { ManagerReportNode } from './attendanceApi';

@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import axios from 'axios';
 import { authenticate } from '@/config/credentials';
 import { appText } from '@/config/constants';
 import { AuthenticatedUser, LoginCredentials, LoginStatus } from '@/types';
@@ -12,13 +13,7 @@ const loadPersistedUser = (): AuthenticatedUser | null => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const user = JSON.parse(raw) as AuthenticatedUser;
-    // Evict sessions with old ID format (e.g. 'u-XXXX') so users are prompted to re-login
-    if (!user.id.startsWith('EMP-')) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return user;
+    return JSON.parse(raw) as AuthenticatedUser;
   } catch {
     return null;
   }
@@ -63,8 +58,11 @@ export const login = createAsyncThunk<
   }
   try {
     return await authApi.login(credentials);
-  } catch {
-    return rejectWithValue(appText.login.invalidCredentials);
+  } catch (err) {
+    const message = axios.isAxiosError<{ message?: string }>(err)
+      ? err.response?.data?.message
+      : undefined;
+    return rejectWithValue(message ?? appText.login.invalidCredentials);
   }
 });
 

@@ -597,7 +597,7 @@ function buildOffDayOtRecords(
         name: dir.displayName,
         grade,
         entity: dir.entity,
-        department: dir.department,
+        department: dir.department ?? '',
         date: `${String(od.day).padStart(2, '0')} ${monthStr}`,
         clockIn: od.clockIn,
         clockOut: od.clockOut,
